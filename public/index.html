@@ -1,0 +1,412 @@
+<!doctype html>
+<html lang="de">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Printer Farm Admin</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <section class="login-screen" id="login-screen">
+      <form class="login-card" id="login-form">
+        <div>
+          <p class="eyebrow">Printer Farm Admin</p>
+          <h1>Anmeldung</h1>
+        </div>
+        <label>
+          User-Name
+          <input name="username" type="text" autocomplete="username" required placeholder="admin">
+        </label>
+        <label>
+          Passwort
+          <input name="password" type="password" autocomplete="current-password" required placeholder="Passwort">
+        </label>
+        <button type="submit">Anmelden</button>
+        <span class="login-version">v0.0.17a</span>
+      </form>
+    </section>
+
+    <main class="shell" id="app-shell" hidden>
+      <nav class="module-tabs" aria-label="Module">
+        <button class="nav-tab active" type="button" data-view="overview">Übersicht</button>
+        <button class="nav-tab" type="button" data-view="materials">Materialverwaltung</button>
+        <button class="nav-tab" type="button" data-view="storage">Lagerplätze</button>
+        <button class="nav-tab" type="button" data-view="settings">Einstellungen</button>
+        <button class="nav-tab logout-tab" id="logout-button" type="button">Abmelden</button>
+      </nav>
+
+      <section class="view active" id="overview-view">
+        <section class="details">
+          <div class="details-heading">
+            <h2>Material im Lager</h2>
+            <span id="material-types"></span>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Material</th>
+                  <th>Hersteller</th>
+                  <th>Farbe</th>
+                  <th>Menge</th>
+                  <th>Lagerplatz</th>
+                </tr>
+              </thead>
+              <tbody id="overview-materials"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="details">
+          <div class="details-heading">
+            <h2>Druckerstatus</h2>
+            <span id="printer-status-summary"></span>
+          </div>
+          <div class="printer-list" id="printer-list"></div>
+        </section>
+      </section>
+
+      <section class="view" id="materials-view">
+        <section class="details">
+          <div class="details-heading">
+            <h2>Materialbestand</h2>
+            <div class="heading-actions">
+              <span id="material-count"></span>
+              <button type="button" data-modal-open="material-modal">Material anlegen</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Material</th>
+                  <th>Hersteller</th>
+                  <th>Farbe</th>
+                  <th>Menge</th>
+                  <th>Lagerplatz</th>
+                  <th>Aktion</th>
+                </tr>
+              </thead>
+              <tbody id="material-cards"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section class="view" id="storage-view">
+        <section class="details">
+          <div class="details-heading">
+            <h2>Verwaltete Lagerplätze</h2>
+            <div class="heading-actions">
+              <span id="storage-summary"></span>
+              <button type="button" data-modal-open="storage-modal">Lagerplatz anlegen</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Raum</th>
+                  <th>Regal</th>
+                  <th>Box</th>
+                  <th>Notiz</th>
+                  <th>Material</th>
+                  <th>Aktion</th>
+                </tr>
+              </thead>
+              <tbody id="storage-cards"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <section class="view" id="settings-view">
+        <div class="permission-banner" id="permission-banner" hidden>
+          User können alle Module sehen und bearbeiten, außer die Einstellungen.
+        </div>
+
+        <section class="details admin-only">
+          <div class="details-heading">
+            <h2>Benutzer</h2>
+            <div class="heading-actions">
+              <span id="user-summary"></span>
+              <button type="button" data-modal-open="user-modal">User anlegen</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>E-Mail</th>
+                  <th>Rechte</th>
+                  <th>Aktion</th>
+                </tr>
+              </thead>
+              <tbody id="user-list"></tbody>
+            </table>
+          </div>
+        </section>
+      </section>
+
+      <footer class="app-footer">
+        <span>Printer Farm Admin</span>
+        <span id="app-version">v0.0.17a</span>
+      </footer>
+    </main>
+
+    <dialog class="modal" id="material-modal">
+      <form class="modal-card" id="material-form">
+        <div class="modal-heading">
+          <div>
+            <p class="eyebrow">Materialverwaltung</p>
+            <h2>Material anlegen</h2>
+          </div>
+          <button class="icon-button" type="button" data-modal-close aria-label="Schließen">×</button>
+        </div>
+        <div class="form-grid">
+          <label>
+            Typ
+            <input name="type" required placeholder="PLA, PETG, ASA">
+          </label>
+          <label>
+            Farbe
+            <input name="colorName" required placeholder="Mattschwarz">
+          </label>
+          <label>
+            Hersteller
+            <input name="manufacturer" required placeholder="Bambu Lab">
+          </label>
+          <label>
+            Farbwert
+            <input name="colorHex" type="color" value="#444444" aria-label="Farbwert">
+          </label>
+          <label>
+            Menge in Gramm
+            <input name="quantityGrams" type="number" min="0" step="1" value="1000">
+          </label>
+          <label>
+            Lagerplatz
+            <select name="storageLocationId" id="material-location"></select>
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button class="secondary-button" type="button" data-modal-close>Abbrechen</button>
+          <button type="submit">Material speichern</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="material-edit-modal">
+      <form class="modal-card" id="material-edit-form">
+        <input name="id" type="hidden">
+        <div class="modal-heading">
+          <div>
+            <p class="eyebrow">Materialverwaltung</p>
+            <h2>Material bearbeiten</h2>
+          </div>
+          <button class="icon-button" type="button" data-modal-close aria-label="Schließen">×</button>
+        </div>
+        <div class="form-grid">
+          <label>
+            Typ
+            <input name="type" required placeholder="PLA, PETG, ASA">
+          </label>
+          <label>
+            Farbe
+            <input name="colorName" required placeholder="Mattschwarz">
+          </label>
+          <label>
+            Hersteller
+            <input name="manufacturer" required placeholder="Bambu Lab">
+          </label>
+          <label>
+            Farbwert
+            <input name="colorHex" type="color" value="#444444" aria-label="Farbwert">
+          </label>
+          <label>
+            Menge in Gramm
+            <input name="quantityGrams" type="number" min="0" step="1">
+          </label>
+          <label>
+            Lagerplatz
+            <select name="storageLocationId" id="material-edit-location"></select>
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button class="secondary-button" type="button" data-modal-close>Abbrechen</button>
+          <button type="submit">Änderungen speichern</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal compact-modal" id="quantity-modal">
+      <form class="modal-card compact-modal-card" id="quantity-form">
+        <input name="id" type="hidden">
+        <input name="mode" type="hidden">
+        <div class="modal-heading">
+          <div>
+            <p class="eyebrow">Bestand</p>
+            <h2 id="quantity-title">Bestand ändern</h2>
+          </div>
+          <button class="icon-button" type="button" data-modal-close aria-label="Schließen">×</button>
+        </div>
+        <label>
+          Gramm
+          <input id="quantity-grams" name="grams" type="number" min="1" step="1" required placeholder="250">
+        </label>
+        <div class="modal-actions">
+          <button class="secondary-button" type="button" data-modal-close>Abbrechen</button>
+          <button type="submit">Bestätigen</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="storage-modal">
+      <form class="modal-card" id="storage-form">
+        <div class="modal-heading">
+          <div>
+            <p class="eyebrow">Lagerplätze</p>
+            <h2>Lagerplatz anlegen</h2>
+          </div>
+          <button class="icon-button" type="button" data-modal-close aria-label="Schließen">×</button>
+        </div>
+        <div class="form-grid">
+          <label>
+            Raum
+            <input name="room" required placeholder="Druckraum">
+          </label>
+          <label>
+            Regal
+            <input name="shelf" required placeholder="Regal A">
+          </label>
+          <label>
+            Box
+            <input name="box" required placeholder="Box 01">
+          </label>
+          <label>
+            Notiz
+            <input name="note" placeholder="Reservebestand">
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button class="secondary-button" type="button" data-modal-close>Abbrechen</button>
+          <button type="submit">Lagerplatz speichern</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="storage-edit-modal">
+      <form class="modal-card" id="storage-edit-form">
+        <input name="id" type="hidden">
+        <div class="modal-heading">
+          <div>
+            <p class="eyebrow">Lagerplätze</p>
+            <h2>Lagerplatz bearbeiten</h2>
+          </div>
+          <button class="icon-button" type="button" data-modal-close aria-label="Schließen">×</button>
+        </div>
+        <div class="form-grid">
+          <label>
+            Raum
+            <input name="room" required placeholder="Druckraum">
+          </label>
+          <label>
+            Regal
+            <input name="shelf" required placeholder="Regal A">
+          </label>
+          <label>
+            Box
+            <input name="box" required placeholder="Box 01">
+          </label>
+          <label>
+            Notiz
+            <input name="note" placeholder="Reservebestand">
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button class="secondary-button" type="button" data-modal-close>Abbrechen</button>
+          <button type="submit">Änderungen speichern</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="user-modal">
+      <form class="modal-card" id="user-form">
+        <div class="modal-heading">
+          <div>
+            <p class="eyebrow">Einstellungen</p>
+            <h2>User anlegen</h2>
+          </div>
+          <button class="icon-button" type="button" data-modal-close aria-label="Schließen">×</button>
+        </div>
+        <div class="form-grid">
+          <label>
+            Name
+            <input name="name" required placeholder="Max Mustermann">
+          </label>
+          <label>
+            E-Mail
+            <input name="email" type="email" required placeholder="max@example.local">
+          </label>
+          <label>
+            Rechtegruppe
+            <select name="role">
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
+          </label>
+          <label>
+            Passwort
+            <input name="password" type="password" minlength="8" required placeholder="Mindestens 8 Zeichen">
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button class="secondary-button" type="button" data-modal-close>Abbrechen</button>
+          <button type="submit">User speichern</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="user-edit-modal">
+      <form class="modal-card" id="user-edit-form">
+        <input name="id" type="hidden">
+        <div class="modal-heading">
+          <div>
+            <p class="eyebrow">Einstellungen</p>
+            <h2>User bearbeiten</h2>
+          </div>
+          <button class="icon-button" type="button" data-modal-close aria-label="Schließen">×</button>
+        </div>
+        <div class="form-grid">
+          <label>
+            Name
+            <input name="name" required placeholder="Max Mustermann">
+          </label>
+          <label>
+            E-Mail
+            <input name="email" type="email" required placeholder="max@example.local">
+          </label>
+          <label>
+            Rechtegruppe
+            <select name="role">
+              <option value="user">User</option>
+              <option value="admin">Admin</option>
+            </select>
+          </label>
+          <label>
+            Neues Passwort
+            <input name="password" type="password" minlength="8" placeholder="Leer lassen = unverändert">
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button class="secondary-button" type="button" data-modal-close>Abbrechen</button>
+          <button type="submit">Änderungen speichern</button>
+        </div>
+      </form>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    <script src="/app.js"></script>
+  </body>
+</html>
