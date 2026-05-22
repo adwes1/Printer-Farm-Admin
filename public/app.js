@@ -236,6 +236,10 @@ function activeMaintenanceTasks() {
   return state.data.maintenanceTasks.filter((task) => task.isActive);
 }
 
+function dueMaintenanceTasks() {
+  return activeMaintenanceTasks().filter((task) => Number(task.dueAfterHours || 0) > 0);
+}
+
 function latestMaintenanceByTask(printerId) {
   const latest = new Map();
   for (const record of maintenanceRecordsForPrinter(printerId)) {
@@ -672,8 +676,9 @@ function renderStorage() {
 
 function renderMaintenance() {
   const printers = state.data.printers;
-  const tasks = activeMaintenanceTasks();
-  elements.maintenanceSummary.textContent = `${printers.length} Drucker · ${tasks.length} Wartungsart(en)`;
+  const tasks = dueMaintenanceTasks();
+  const activeTasks = activeMaintenanceTasks();
+  elements.maintenanceSummary.textContent = `${printers.length} Drucker · ${activeTasks.length} Wartungsart(en)`;
 
   elements.maintenancePrinterList.innerHTML = printers
     .map((printer) => {
