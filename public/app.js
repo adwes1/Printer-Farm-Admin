@@ -175,17 +175,9 @@ function todayInputValue() {
   return new Date().toISOString().slice(0, 10);
 }
 
-function daysSince(value) {
-  if (!value) {
-    return "nie";
-  }
-  const start = new Date(`${value}T00:00:00`).getTime();
-  const today = new Date(todayInputValue()).getTime();
-  if (!Number.isFinite(start) || !Number.isFinite(today)) {
-    return "nie";
-  }
-  const days = Math.max(0, Math.floor((today - start) / 86400000));
-  return days === 0 ? "heute" : `vor ${days} T.`;
+function oneDecimal(value) {
+  const number = Number(value || 0);
+  return Math.max(0, Number.isFinite(number) ? number : 0).toFixed(1);
 }
 
 function formatHours(value) {
@@ -197,8 +189,7 @@ function formatHours(value) {
 }
 
 function formatOperatingHours(value) {
-  const hours = Number(value || 0);
-  return `${Math.max(0, Number.isFinite(hours) ? hours : 0).toLocaleString("de-DE", { maximumFractionDigits: 1 })} h`;
+  return `${Number(oneDecimal(value)).toLocaleString("de-DE", { maximumFractionDigits: 1 })} h`;
 }
 
 function maintenanceDueLabel(task, record, printer) {
@@ -433,7 +424,7 @@ function renderOverview() {
     .join("");
 }
 
-function renderPrinterDetailCard(printer, { actions = true, closeButton = false } = {}) {
+function renderPrinterDetailCard(printer, { actions = true } = {}) {
   const rawStatus = printer.status || {};
   const status = printerOnline(printer) ? rawStatus : {};
   const stateName = printerDisplayState(printer);
@@ -445,7 +436,6 @@ function renderPrinterDetailCard(printer, { actions = true, closeButton = false 
 
   return `
     <article class="printer-monitor-card ${hasErrors ? "has-errors" : ""}">
-      ${closeButton ? "<button class=\"icon-button printer-detail-close\" type=\"button\" data-modal-close aria-label=\"Schließen\">×</button>" : ""}
       <div class="printer-card-header">
         <div class="printer-title-line">
           <strong>${escapeHtml(printer.name)}</strong>
@@ -463,6 +453,7 @@ function renderPrinterDetailCard(printer, { actions = true, closeButton = false 
           <span>Bett: <strong>${displayTemperature(status.bedTemp)} / ${displayTemperature(status.bedTargetTemp)}</strong></span>
           <span>Layer: <strong>${displayValue(status.currentLayer)} / ${displayValue(status.totalLayers)}</strong></span>
           <span>Kammer: <strong>${displayTemperature(status.chamberTemp)}</strong></span>
+          <span>Stunden: <strong>${formatOperatingHours(printer.operatingHours)}</strong></span>
         </div>
         <div class="print-preview-frame">
           ${preview}
@@ -788,7 +779,7 @@ function openMaintenanceModal(id) {
   form.reset();
   form.elements.printerId.value = printer.id;
   form.elements.performedAt.value = todayInputValue();
-  form.elements.performedAtHours.value = Number(printer.operatingHours || 0);
+  form.elements.performedAtHours.value = oneDecimal(printer.operatingHours);
   elements.maintenanceModalTitle.textContent = `Wartung: ${printer.name}`;
   elements.maintenanceTaskSelect.innerHTML = maintenanceTaskOptions();
   renderMaintenanceHistory(printer.id);
@@ -822,7 +813,7 @@ function openEditPrinterModal(id) {
   form.elements.serialNumber.value = printer.serialNumber || "";
   form.elements.accessCode.value = "";
   form.elements.location.value = printer.location || "";
-  form.elements.operatingHours.value = Number(printer.operatingHours || 0).toFixed(1);
+  form.elements.operatingHours.value = oneDecimal(printer.operatingHours);
   form.elements.hasAms.checked = Boolean(printer.hasAms);
   form.elements.enableFileCacheLookup.checked = Boolean(printer.enableFileCacheLookup);
   form.elements.isActive.checked = Boolean(printer.isActive);
@@ -1353,10 +1344,6 @@ document.querySelectorAll("[data-modal-open]").forEach((button) => {
   button.addEventListener("click", () => openModal(button.dataset.modalOpen));
 });
 
-document.querySelectorAll("[data-modal-close]").forEach((button) => {
-  button.addEventListener("click", () => closeModalFromElement(button));
-});
-
 document.addEventListener("click", (event) => {
   const closeButton = event.target.closest("[data-modal-close]");
   if (closeButton) {
@@ -1529,13 +1516,6 @@ document.addEventListener("click", async (event) => {
     showToast(error.message, "error");
   }
 });
-
-if (elements.roleSelect) {
-  elements.roleSelect.addEventListener("change", () => {
-    state.role = elements.roleSelect.value;
-    applyPermissions();
-  });
-}
 
 document.querySelector("#material-form").addEventListener("submit", async (event) => {
   event.preventDefault();

@@ -9,8 +9,9 @@ Aktuelle App-Version: `0.0.25a`
 - Uebersicht: Materialbestand inklusive Ampel im Lager und Status der verbundenen Drucker.
 - Materialverwaltung: Material kompakt als Liste mit Typ, Farbe, Hersteller, Ampel, Menge, Lagerplatz, Bearbeitung, schneller Bestandsaenderung und Loeschaktion verwalten.
 - Lagerplaetze: Lagerorte kompakt als Liste mit Raum, Regal, Box, Notiz, Materialanzahl, Bearbeitung und Loeschaktion verwalten.
-- 3D-Drucker: Bambu Lab Drucker lokal per MQTT registrieren, testen und den letzten Status im Dashboard anzeigen.
-- Einstellungen: User kompakt als Liste verwalten und Material-Ampel-Grenzwerte bearbeiten.
+- Wartung: Wartungsfaelligkeiten je Drucker auf Basis der Betriebsstunden anzeigen und erledigte Wartungen mit Datum, Betriebsstunden und Notiz dokumentieren.
+- 3D-Drucker: Bambu Lab Drucker lokal per MQTT registrieren, testen, Betriebsstunden erfassen und den letzten Status im Dashboard anzeigen.
+- Einstellungen: User kompakt als Liste verwalten, Drucker/Lager/Material konfigurieren, Material-Ampel-Grenzwerte bearbeiten, Monitoring-Intervall setzen und Wartungsarten pflegen.
 - Anmeldung: User melden sich mit User-Name und Passwort an; der Abmelden-Tab beendet die Sitzung nach Bestaetigung.
 
 ## Start
@@ -114,6 +115,33 @@ Access Codes werden nicht im Frontend ausgeliefert und nicht geloggt. In dieser 
 
 Raw-MQTT-Payloads werden standardmaessig in `printer_status.raw_json` gespeichert, damit unbekannte Felder spaeter ausgewertet werden koennen. Das kann ueber `app_settings.bambu_store_raw_payloads = 0` deaktiviert werden.
 
+### Monitoring und Vorschauen
+
+Die App sammelt Druckerstatus per MQTT, fasst schnelle Statuswechsel zusammen und schreibt sie standardmaessig alle `5000` ms in die Datenbank. Admins koennen das Intervall unter `Einstellungen > Drucker-Monitoring` zwischen `1000` und `60000` ms anpassen.
+
+Wenn ein Drucker waehrend eines laufenden Drucks online ist, zaehlt die App Betriebszeit automatisch hoch. Beim Anlegen oder Bearbeiten eines Druckers kann ein Startwert fuer Betriebsstunden gesetzt werden. Wartungseintraege koennen die Betriebsstunden ebenfalls nach oben korrigieren, falls eine Wartung bei einem hoeheren Zaehlerstand eingetragen wird.
+
+Optional kann pro Drucker `Projektname ueber Datei-Cache ermitteln` aktiviert werden. Dann versucht die App bei lokalen Bambu-Dateipfaden, den Projekt-/Dateinamen und ein Vorschaubild aus dem Datei-Cache zu lesen. Erfolgreich gefundene Vorschaubilder werden unter `data/previews/` gespeichert und nur fuer online druckende oder pausierte Drucker ausgeliefert.
+
+## Wartung
+
+Das Modul `Wartung` zeigt alle aktiven Drucker mit ihren Betriebsstunden und den aktiven Wartungsarten. Fuer jede Wartungsart wird angezeigt, ob sie sofort faellig ist, in wie vielen Stunden sie faellig wird oder ob kein Stundenintervall hinterlegt ist.
+
+Wartungen werden direkt am Drucker eingetragen:
+
+- Wartungsart auswaehlen
+- Datum setzen
+- Betriebsstunden zum Zeitpunkt der Wartung erfassen
+- optionale Notiz speichern
+
+Die Historie bleibt am jeweiligen Drucker sichtbar. Unter `Einstellungen > Wartungsarten` koennen Admins Wartungsarten anlegen, bearbeiten und deaktivieren. Eine Wartungsart besteht aus Name, optionaler Beschreibung und `Faellig nach Stunden`. Standard-Wartungsarten sind unter anderem:
+
+- `Duese und Hotend reinigen`: 50 Stunden
+- `Riemen und Schrauben pruefen`: 100 Stunden
+- `Spindeln reinigen und fetten`: 500 Stunden
+- `Duese tauschen`: 1000 Stunden
+- `Luftfilter und Trockenmittel tauschen`: 1000 Stunden
+
 ## API fuer Drucker
 
 - `GET /api/printers`: alle Drucker inklusive letztem Status, ohne Access Codes
@@ -121,9 +149,19 @@ Raw-MQTT-Payloads werden standardmaessig in `printer_status.raw_json` gespeicher
 - `POST /api/printers`: Drucker anlegen
 - `PATCH /api/printers/:id`: Drucker bearbeiten
 - `DELETE /api/printers/:id`: Drucker inklusive Statushistorie loeschen
+- `GET /api/printers/:id/preview`: gecachtes PNG-Vorschaubild des aktuellen Druckjobs
 - `POST /api/printers/:id/test-connection`: MQTT-Verbindung bis zu 10 Sekunden testen
+- `POST /api/printers/:id/maintenance`: Wartungseintrag fuer einen Drucker speichern
 - `GET /api/printers/:id/status-history?from=&to=&limit=`: Statushistorie fuer Diagramme
 - `GET /api/printer-events`: Server-Sent Events fuer Live-Updates
+
+## API fuer Wartung und Einstellungen
+
+- `POST /api/maintenance-tasks`: Wartungsart anlegen oder reaktivieren, nur Admins
+- `PATCH /api/maintenance-tasks/:id`: Wartungsart bearbeiten, nur Admins
+- `DELETE /api/maintenance-tasks/:id`: Wartungsart deaktivieren, nur Admins
+- `PATCH /api/settings/traffic-light`: Material-Ampel-Grenzwerte speichern, nur Admins
+- `PATCH /api/settings/printer-monitoring`: Status-Schreibintervall speichern, nur Admins
 
 ## Tests
 

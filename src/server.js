@@ -45,7 +45,7 @@ function normalizeMaintenanceTaskPayload(payload) {
 
 function normalizeMaintenanceRecordPayload(payload) {
   const performedAt = String(payload.performedAt || payload.performed_at || "").trim();
-  const performedAtHours = Number.parseInt(String(payload.performedAtHours ?? payload.performed_at_hours ?? payload.operatingHours ?? ""), 10);
+  const performedAtHours = Number.parseFloat(String(payload.performedAtHours ?? payload.performed_at_hours ?? payload.operatingHours ?? "").replace(",", "."));
   return {
     taskId: parsePositiveId(payload.taskId || payload.task_id),
     performedAt,
@@ -124,6 +124,11 @@ function operatingSecondsSql(hours) {
   return String(Math.max(0, Math.round((Number.isFinite(numericHours) ? numericHours : 0) * 3600)));
 }
 
+function operatingHoursSql(hours) {
+  const numericHours = Number(hours || 0);
+  return String(Math.max(0, Math.round(Number.isFinite(numericHours) ? numericHours : 0)));
+}
+
 function parseSqliteDate(value) {
   if (!value) {
     return null;
@@ -144,6 +149,9 @@ function parseCookies(request) {
       .filter(Boolean)
       .map((cookie) => {
         const separator = cookie.indexOf("=");
+        if (separator < 0) {
+          return [decodeURIComponent(cookie), ""];
+        }
         return [
           decodeURIComponent(cookie.slice(0, separator)),
           decodeURIComponent(cookie.slice(separator + 1))
@@ -181,6 +189,14 @@ async function readJsonBody(request) {
 function sendJson(response, statusCode, payload, headers = {}) {
   response.writeHead(statusCode, { "content-type": "application/json; charset=utf-8", ...headers });
   response.end(JSON.stringify(payload, null, 2));
+}
+
+function requireAdmin(currentUser, response, message = "Nur Admins dürfen Einstellungen bearbeiten.") {
+  if (currentUser?.role === "admin") {
+    return true;
+  }
+  sendJson(response, 403, { error: message });
+  return false;
 }
 
 function sendSse(response, event, payload) {
@@ -1112,7 +1128,7 @@ async function createPrinterMaintenanceRecord(id, payload, currentUser) {
     BEGIN;
     UPDATE printers
     SET
-      operating_hours = MAX(operating_hours, ${numberSql(record.performedAtHours)}),
+      operating_hours = MAX(operating_hours, ${operatingHoursSql(record.performedAtHours)}),
       operating_seconds = MAX(operating_seconds, ${operatingSecondsSql(record.performedAtHours)}),
       updated_at = datetime('now')
     WHERE id = ${printerId};
@@ -1122,7 +1138,7 @@ async function createPrinterMaintenanceRecord(id, payload, currentUser) {
       ${record.taskId},
       ${quoteSql(task.name)},
       ${quoteSql(record.performedAt)},
-      ${numberSql(record.performedAtHours)},
+      ${operatingHoursSql(record.performedAtHours)},
       ${quoteSql(record.note)}
     );
     COMMIT;
@@ -1161,7 +1177,7 @@ async function createPrinter(payload, currentUser) {
       ${quoteSql(printer.accessCode)},
       ${printer.hasAms},
       ${quoteSql(printer.location)},
-      ${numberSql(printer.operatingHours)},
+      ${operatingHoursSql(printer.operatingHours)},
       ${operatingSecondsSql(printer.operatingHours)},
       ${printer.enableFileCacheLookup},
       ${printer.isActive}
@@ -1196,7 +1212,7 @@ async function updatePrinter(id, payload, currentUser) {
       access_code = ${quoteSql(printer.accessCode)},
       has_ams = ${printer.hasAms},
       location = ${quoteSql(printer.location)},
-      operating_hours = ${numberSql(printer.operatingHours)},
+      operating_hours = ${operatingHoursSql(printer.operatingHours)},
       operating_seconds = ${operatingSecondsSql(printer.operatingHours)},
       enable_file_cache_lookup = ${printer.enableFileCacheLookup},
       is_active = ${printer.isActive},
@@ -1483,8 +1499,7 @@ async function handleRequest(request, response) {
   }
 
   if (url.pathname === "/api/users" && request.method === "POST") {
-    if (currentUser.role !== "admin") {
-      sendJson(response, 403, { error: "Nur Admins dürfen User verwalten." });
+    if (!requireAdmin(currentUser, response, "Nur Admins dürfen User verwalten.")) {
       return;
     }
     const result = await createUser(await readJsonBody(request), currentUser);
@@ -1494,8 +1509,7 @@ async function handleRequest(request, response) {
 
   const userUpdateMatch = url.pathname.match(/^\/api\/users\/(\d+)$/);
   if (userUpdateMatch && request.method === "PATCH") {
-    if (currentUser.role !== "admin") {
-      sendJson(response, 403, { error: "Nur Admins dürfen User verwalten." });
+    if (!requireAdmin(currentUser, response, "Nur Admins dürfen User verwalten.")) {
       return;
     }
     const result = await updateUser(userUpdateMatch[1], await readJsonBody(request), currentUser);
@@ -1505,8 +1519,7 @@ async function handleRequest(request, response) {
 
   const userDeleteMatch = url.pathname.match(/^\/api\/users\/(\d+)$/);
   if (userDeleteMatch && request.method === "DELETE") {
-    if (currentUser.role !== "admin") {
-      sendJson(response, 403, { error: "Nur Admins dürfen User verwalten." });
+    if (!requireAdmin(currentUser, response, "Nur Admins dürfen User verwalten.")) {
       return;
     }
     const result = await deleteUser(userDeleteMatch[1], currentUser);
@@ -1515,8 +1528,7 @@ async function handleRequest(request, response) {
   }
 
   if (url.pathname === "/api/maintenance-tasks" && request.method === "POST") {
-    if (currentUser.role !== "admin") {
-      sendJson(response, 403, { error: "Nur Admins dürfen Einstellungen bearbeiten." });
+    if (!requireAdmin(currentUser, response)) {
       return;
     }
     const result = await createMaintenanceTask(await readJsonBody(request), currentUser);
@@ -1526,8 +1538,7 @@ async function handleRequest(request, response) {
 
   const maintenanceTaskUpdateMatch = url.pathname.match(/^\/api\/maintenance-tasks\/(\d+)$/);
   if (maintenanceTaskUpdateMatch && request.method === "PATCH") {
-    if (currentUser.role !== "admin") {
-      sendJson(response, 403, { error: "Nur Admins dürfen Einstellungen bearbeiten." });
+    if (!requireAdmin(currentUser, response)) {
       return;
     }
     const result = await updateMaintenanceTask(maintenanceTaskUpdateMatch[1], await readJsonBody(request), currentUser);
@@ -1537,8 +1548,7 @@ async function handleRequest(request, response) {
 
   const maintenanceTaskDeleteMatch = url.pathname.match(/^\/api\/maintenance-tasks\/(\d+)$/);
   if (maintenanceTaskDeleteMatch && request.method === "DELETE") {
-    if (currentUser.role !== "admin") {
-      sendJson(response, 403, { error: "Nur Admins dürfen Einstellungen bearbeiten." });
+    if (!requireAdmin(currentUser, response)) {
       return;
     }
     const result = await deleteMaintenanceTask(maintenanceTaskDeleteMatch[1], currentUser);
@@ -1547,8 +1557,7 @@ async function handleRequest(request, response) {
   }
 
   if (url.pathname === "/api/settings/traffic-light" && request.method === "PATCH") {
-    if (currentUser.role !== "admin") {
-      sendJson(response, 403, { error: "Nur Admins dürfen Einstellungen bearbeiten." });
+    if (!requireAdmin(currentUser, response)) {
       return;
     }
     const result = await updateTrafficLightSettings(await readJsonBody(request), currentUser);
@@ -1557,8 +1566,7 @@ async function handleRequest(request, response) {
   }
 
   if (url.pathname === "/api/settings/printer-monitoring" && request.method === "PATCH") {
-    if (currentUser.role !== "admin") {
-      sendJson(response, 403, { error: "Nur Admins dürfen Einstellungen bearbeiten." });
+    if (!requireAdmin(currentUser, response)) {
       return;
     }
     const result = await updatePrinterMonitoringSettings(await readJsonBody(request), currentUser);
