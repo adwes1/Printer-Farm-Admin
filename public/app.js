@@ -1,6 +1,6 @@
 const state = {
   data: {
-    version: "0.0.24a",
+    version: "0.0.25a",
     materials: [],
     storageLocations: [],
     printers: [],

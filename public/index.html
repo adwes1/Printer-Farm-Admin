@@ -22,7 +22,7 @@
           <input name="password" type="password" autocomplete="current-password" required placeholder="Passwort">
         </label>
         <button type="submit">Anmelden</button>
-        <span class="login-version">v0.0.24a</span>
+        <span class="login-version">v0.0.25a</span>
       </form>
     </section>
 
@@ -37,6 +37,14 @@
       </nav>
 
       <section class="view active" id="overview-view">
+        <section class="details">
+          <div class="details-heading">
+            <h2>Druckerstatus</h2>
+            <span id="printer-status-summary"></span>
+          </div>
+          <div class="printer-list" id="printer-list"></div>
+        </section>
+
         <section class="details">
           <div class="details-heading">
             <h2>Material im Lager</h2>
@@ -57,14 +65,6 @@
               <tbody id="overview-materials"></tbody>
             </table>
           </div>
-        </section>
-
-        <section class="details">
-          <div class="details-heading">
-            <h2>Druckerstatus</h2>
-            <span id="printer-status-summary"></span>
-          </div>
-          <div class="printer-list" id="printer-list"></div>
         </section>
       </section>
 
@@ -199,7 +199,7 @@
 
       <footer class="app-footer">
         <span>Printer Farm Admin</span>
-        <span id="app-version">v0.0.24a</span>
+        <span id="app-version">v0.0.25a</span>
       </footer>
     </main>
 

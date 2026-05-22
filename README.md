@@ -2,7 +2,7 @@
 
 Webbasierte Admin-App fuer kleine bis mittlere 3D-Druckerfarmen mit SQLite-Datenbank.
 
-Aktuelle App-Version: `0.0.24a`
+Aktuelle App-Version: `0.0.25a`
 
 ## Module
 
