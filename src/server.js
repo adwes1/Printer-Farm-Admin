@@ -187,7 +187,7 @@ function mapPrinter(row, includeSecret = false) {
     serialNumber: row.serialNumber || "",
     hasAms: Boolean(row.hasAms),
     enableFileCacheLookup: Boolean(row.enableFileCacheLookup),
-    previewImageUrl: row.previewPath ? `/api/printers/${row.id}/preview?ts=${encodeURIComponent(row.previewUpdatedAt || "")}` : null,
+    previewImageUrl: row.online && row.previewPath ? `/api/printers/${row.id}/preview?ts=${encodeURIComponent(row.previewUpdatedAt || "")}` : null,
     location: row.location || "",
     isActive: Boolean(row.isActive),
     createdAt: row.createdAt,
