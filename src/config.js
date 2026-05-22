@@ -29,7 +29,7 @@ const phpConfig = readPhpConfig();
 
 export const config = {
   rootDir,
-  appVersion: "0.0.17a",
+  appVersion: "0.0.24a",
   host: process.env.HOST || "127.0.0.1",
   port: Number.parseInt(process.env.PORT || "3000", 10),
   dbPath: path.resolve(rootDir, process.env.DB_PATH || phpConfig.dbPath || "data/printer-farm.sqlite"),

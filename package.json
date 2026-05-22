@@ -1,10 +1,11 @@
 {
   "name": "printer-farm-admin",
-  "version": "0.0.17-alpha.0",
+  "version": "0.0.24-alpha.0",
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node src/server.js"
+    "start": "node src/server.js",
+    "test": "node --test"
   },
   "engines": {
     "node": ">=20"

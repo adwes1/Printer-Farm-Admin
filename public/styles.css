@@ -2,9 +2,6 @@
   color-scheme: dark;
   font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --bg: #06070f;
-  --panel: #0d1020;
-  --panel-strong: #13172a;
-  --panel-glow: rgba(0, 229, 255, 0.13);
   --line: rgba(0, 229, 255, 0.28);
   --line-soft: rgba(141, 153, 255, 0.18);
   --text: #eef7ff;
@@ -73,6 +70,18 @@ button,
 input,
 select {
   font: inherit;
+}
+
+.checkbox-label {
+  display: flex;
+  min-height: 44px;
+  align-items: center;
+  gap: 10px;
+}
+
+.checkbox-label input {
+  width: 18px;
+  min-height: 18px;
 }
 
 button {
@@ -218,45 +227,6 @@ label {
   margin-left: auto;
 }
 
-.grid {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 16px;
-  margin: 28px 0;
-}
-
-.metric {
-  min-height: 132px;
-  padding: 22px;
-  border: 1px solid var(--line-soft);
-  border-radius: 8px;
-  background: linear-gradient(180deg, rgba(19, 23, 42, 0.92), rgba(8, 11, 24, 0.92));
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.28), inset 0 0 28px var(--panel-glow);
-}
-
-.metric span {
-  display: block;
-  margin-bottom: 18px;
-  color: var(--muted);
-  font-weight: 700;
-}
-
-.metric strong {
-  font-size: 1.4rem;
-}
-
-.metric.ok {
-  border-color: rgba(53, 255, 158, 0.55);
-}
-
-.metric.warn {
-  border-color: rgba(255, 204, 77, 0.58);
-}
-
-.metric.error {
-  border-color: rgba(255, 77, 109, 0.62);
-}
-
 .view {
   display: none;
 }
@@ -353,8 +323,6 @@ th {
 }
 
 td span,
-.item-list span,
-.item-list small,
 .printer-list small {
   display: block;
   margin-top: 3px;
@@ -372,17 +340,134 @@ td span,
   vertical-align: -2px;
 }
 
-.printer-list,
-.item-list {
+.traffic-light {
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  margin: 0;
+  border: 1px solid rgba(238, 247, 255, 0.45);
+  border-radius: 50%;
+  vertical-align: -3px;
+}
+
+.traffic-light.red {
+  background: var(--red);
+  box-shadow: 0 0 14px rgba(255, 77, 109, 0.8);
+}
+
+.traffic-light.orange {
+  background: var(--amber);
+  box-shadow: 0 0 14px rgba(255, 204, 77, 0.78);
+}
+
+.traffic-light.green {
+  background: var(--green);
+  box-shadow: 0 0 14px rgba(53, 255, 158, 0.75);
+}
+
+.printer-list {
   display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
 }
 
-.printer-row,
-.material-card,
-.storage-card,
-.user-row {
+.overview-printer-card {
   display: grid;
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: rgba(13, 16, 32, 0.88);
+  padding: 12px;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.22), inset 0 0 22px rgba(0, 229, 255, 0.04);
+}
+
+.overview-printer-header,
+.overview-printer-progress-meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+
+.overview-printer-header strong {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.9rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overview-printer-header > span {
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+  gap: 8px;
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 800;
+}
+
+.overview-printer-preview {
+  display: grid;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  place-items: center;
+  border: 1px solid rgba(209, 214, 232, 0.48);
+  border-radius: 4px;
+  background: rgba(7, 10, 22, 0.72);
+  overflow: hidden;
+}
+
+.overview-printer-preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center center;
+}
+
+.overview-printer-preview-placeholder {
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.overview-printer-progress-meta {
+  justify-content: center;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.overview-printer-progress-meta span + span::before {
+  margin-right: 8px;
+  color: rgba(166, 177, 205, 0.62);
+  content: "|";
+}
+
+.overview-progress-line {
+  height: 26px;
+  padding: 7px;
+  border: 1px solid rgba(141, 153, 255, 0.28);
+  overflow: hidden;
+  border-radius: 4px;
+  background: rgba(7, 10, 22, 0.72);
+}
+
+.overview-progress-line span {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--cyan), var(--green));
+}
+
+.printer-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: center;
   gap: 12px;
   min-height: 68px;
@@ -393,32 +478,9 @@ td span,
   box-shadow: inset 0 0 24px rgba(0, 229, 255, 0.04);
 }
 
-.printer-row:hover,
-.material-card:hover,
-.storage-card:hover,
-.user-row:hover {
+.printer-row:hover {
   border-color: rgba(0, 229, 255, 0.45);
   box-shadow: 0 0 22px rgba(0, 229, 255, 0.11), inset 0 0 24px rgba(255, 43, 214, 0.04);
-}
-
-.printer-row {
-  grid-template-columns: auto minmax(0, 1fr) auto;
-}
-
-.material-card {
-  grid-template-columns: auto minmax(0, 1fr) minmax(150px, auto);
-}
-
-.user-row {
-  grid-template-columns: minmax(0, 1fr) auto;
-}
-
-.material-swatch {
-  width: 38px;
-  height: 38px;
-  border: 1px solid rgba(238, 247, 255, 0.5);
-  border-radius: 8px;
-  background: var(--chip-color);
 }
 
 .status-dot {
@@ -428,19 +490,260 @@ td span,
   background: var(--muted);
 }
 
-.status-dot.printing {
-  background: var(--green);
-  box-shadow: 0 0 14px rgba(53, 255, 158, 0.8);
-}
-
-.status-dot.idle {
+.status-dot.printing,
+.status-dot.running,
+.status-dot.pause {
   background: var(--amber);
   box-shadow: 0 0 14px rgba(255, 204, 77, 0.8);
 }
 
-.status-dot.offline {
+.status-dot.offline,
+.status-dot.failed {
   background: var(--red);
   box-shadow: 0 0 14px rgba(255, 77, 109, 0.8);
+}
+
+.status-dot.idle,
+.status-dot.finish {
+  background: var(--green);
+  box-shadow: 0 0 14px rgba(53, 255, 158, 0.8);
+}
+
+.printer-dashboard {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.printer-monitor-card {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) clamp(150px, 38%, 230px);
+  grid-template-areas:
+    "header header"
+    "metrics preview"
+    "flags preview"
+    "progressMeta progressMeta"
+    "progress progress"
+    "actions actions"
+    "update update";
+  gap: 10px;
+  min-width: 0;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: rgba(13, 16, 32, 0.88);
+  padding: 12px 14px;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.22), inset 0 0 22px rgba(0, 229, 255, 0.04);
+}
+
+.printer-monitor-card.has-errors {
+  border-color: rgba(255, 77, 109, 0.65);
+}
+
+.printer-card-header,
+.printer-file-row,
+.printer-flags,
+.printer-state-line,
+.printer-title-line,
+.printer-progress-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.printer-card-header {
+  grid-area: header;
+  justify-content: space-between;
+  min-width: 0;
+}
+
+.printer-title-line {
+  min-width: 0;
+  flex: 1 1 auto;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 800;
+  white-space: nowrap;
+}
+
+.printer-title-line strong,
+.printer-title-line span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+}
+
+.printer-title-line strong {
+  flex: 0 0 auto;
+  color: var(--text);
+}
+
+.printer-title-line span::before {
+  margin-right: 8px;
+  color: rgba(166, 177, 205, 0.62);
+  content: "|";
+}
+
+.printer-state-line {
+  flex: 0 0 auto;
+  color: var(--text);
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
+.printer-file-row,
+.print-project-name {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.printer-card-main {
+  display: contents;
+}
+
+.progress-line {
+  grid-area: progress;
+  height: 28px;
+  padding: 7px;
+  border: 1px solid rgba(141, 153, 255, 0.28);
+  overflow: hidden;
+  border-radius: 4px;
+  background: rgba(7, 10, 22, 0.72);
+}
+
+.print-project-name {
+  overflow: hidden;
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.print-preview-frame {
+  position: relative;
+  display: grid;
+  grid-area: preview;
+  place-items: center;
+  min-width: 0;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  padding: 0;
+  border: 1px solid rgba(209, 214, 232, 0.48);
+  border-radius: 4px;
+  background: rgba(7, 10, 22, 0.72);
+  overflow: hidden;
+}
+
+.print-preview-image {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center center;
+}
+
+.print-preview-placeholder {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.progress-line span {
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--cyan), var(--green));
+}
+
+.printer-metrics {
+  grid-area: metrics;
+  display: grid;
+  align-content: start;
+  gap: 5px;
+  min-width: 0;
+}
+
+.printer-metrics span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.printer-metrics strong {
+  color: var(--text);
+  font-size: 0.76rem;
+  white-space: nowrap;
+}
+
+.printer-progress-meta {
+  grid-area: progressMeta;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 800;
+  text-align: center;
+}
+
+.printer-progress-meta span + span::before {
+  margin-right: 8px;
+  color: rgba(166, 177, 205, 0.62);
+  content: "|";
+}
+
+.printer-file-row {
+  grid-area: update;
+  justify-content: center;
+  min-width: 0;
+  align-self: center;
+}
+
+.printer-file-row span:first-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.printer-flags span {
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+}
+
+.printer-flags {
+  grid-area: flags;
+  align-self: end;
+  flex-wrap: wrap;
+  min-height: 34px;
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 700;
+}
+
+.printer-monitor-card .row-actions {
+  grid-area: actions;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.printer-monitor-card .compact-button {
+  min-height: 34px;
+  padding: 0 8px;
+  font-size: 0.8rem;
+}
+
+.printer-flags .error-pill {
+  border-color: rgba(255, 77, 109, 0.65);
+  color: #ffd7df;
 }
 
 .form-grid {
@@ -451,6 +754,18 @@ td span,
 
 .form-grid button {
   align-self: end;
+}
+
+.settings-box {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  align-items: end;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: rgba(13, 16, 32, 0.88);
+  padding: 16px;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.22);
 }
 
 .modal {
@@ -587,6 +902,17 @@ td span,
   font-weight: 700;
 }
 
+@media (max-width: 980px) {
+  .printer-list,
+  .printer-dashboard {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .printer-monitor-card {
+    grid-template-columns: minmax(0, 1fr) clamp(140px, 36%, 210px);
+  }
+}
+
 @media (max-width: 760px) {
   .details-heading,
   .modal-heading,
@@ -596,8 +922,8 @@ td span,
     flex-direction: column;
   }
 
-  .grid,
-  .form-grid {
+  .form-grid,
+  .settings-box {
     grid-template-columns: 1fr;
   }
 
@@ -612,15 +938,34 @@ td span,
     grid-template-columns: 1fr;
   }
 
+  .printer-dashboard {
+    grid-template-columns: 1fr;
+  }
+
+  .printer-list {
+    grid-template-columns: 1fr;
+  }
+
+  .printer-monitor-card {
+    grid-template-columns: 1fr;
+    grid-template-areas:
+      "header"
+      "preview"
+      "metrics"
+      "flags"
+      "progressMeta"
+      "progress"
+      "actions"
+      "update";
+  }
+
+  .print-preview-frame {
+    max-width: 220px;
+    justify-self: center;
+  }
+
   .logout-tab {
     margin-left: 0;
   }
 
-  .material-card {
-    grid-template-columns: auto minmax(0, 1fr);
-  }
-
-  .material-card > div:last-child {
-    grid-column: 1 / -1;
-  }
 }

@@ -1,0 +1,18 @@
+services:
+  printer-farm-admin:
+    build:
+      context: .
+    container_name: printer-farm-admin
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3000
+      DB_PATH: /data/printer-farm.sqlite
+      INSTALL_FILE: /data/install.json
+      ADMIN_NAME: ${ADMIN_NAME:-admin}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD before starting}
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/data

@@ -12,11 +12,11 @@ export class SqliteCli {
 
   async connect() {
     await mkdir(path.dirname(this.dbPath), { recursive: true });
-    await this.exec("SELECT 1 AS ok;");
+    await this.exec("PRAGMA journal_mode = WAL; SELECT 1 AS ok;");
   }
 
   async exec(sql) {
-    const { stdout } = await execFileAsync("sqlite3", [this.dbPath, sql], {
+    const { stdout } = await execFileAsync("sqlite3", ["-cmd", ".timeout 5000", this.dbPath, sql], {
       maxBuffer: 1024 * 1024 * 10
     });
 
@@ -24,7 +24,7 @@ export class SqliteCli {
   }
 
   async query(sql) {
-    const { stdout } = await execFileAsync("sqlite3", ["-json", this.dbPath, sql], {
+    const { stdout } = await execFileAsync("sqlite3", ["-cmd", ".timeout 5000", "-json", this.dbPath, sql], {
       maxBuffer: 1024 * 1024 * 10
     });
 

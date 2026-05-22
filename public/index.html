@@ -22,7 +22,7 @@
           <input name="password" type="password" autocomplete="current-password" required placeholder="Passwort">
         </label>
         <button type="submit">Anmelden</button>
-        <span class="login-version">v0.0.17a</span>
+        <span class="login-version">v0.0.24a</span>
       </form>
     </section>
 
@@ -31,6 +31,7 @@
         <button class="nav-tab active" type="button" data-view="overview">Übersicht</button>
         <button class="nav-tab" type="button" data-view="materials">Materialverwaltung</button>
         <button class="nav-tab" type="button" data-view="storage">Lagerplätze</button>
+        <button class="nav-tab" type="button" data-view="printers">3D-Drucker</button>
         <button class="nav-tab" type="button" data-view="settings">Einstellungen</button>
         <button class="nav-tab logout-tab" id="logout-button" type="button">Abmelden</button>
       </nav>
@@ -48,6 +49,7 @@
                   <th>Material</th>
                   <th>Hersteller</th>
                   <th>Farbe</th>
+                  <th>Ampel</th>
                   <th>Menge</th>
                   <th>Lagerplatz</th>
                 </tr>
@@ -82,6 +84,7 @@
                   <th>Material</th>
                   <th>Hersteller</th>
                   <th>Farbe</th>
+                  <th>Ampel</th>
                   <th>Menge</th>
                   <th>Lagerplatz</th>
                   <th>Aktion</th>
@@ -120,6 +123,19 @@
         </section>
       </section>
 
+      <section class="view" id="printers-view">
+        <section class="details">
+          <div class="details-heading">
+            <h2>3D-Drucker</h2>
+            <div class="heading-actions">
+              <span id="printer-summary"></span>
+              <button type="button" data-modal-open="printer-modal">Drucker anlegen</button>
+            </div>
+          </div>
+          <div class="printer-dashboard" id="printer-cards"></div>
+        </section>
+      </section>
+
       <section class="view" id="settings-view">
         <div class="permission-banner" id="permission-banner" hidden>
           User können alle Module sehen und bearbeiten, außer die Einstellungen.
@@ -147,11 +163,43 @@
             </table>
           </div>
         </section>
+
+        <section class="details admin-only">
+          <div class="details-heading">
+            <h2>Material-Ampel</h2>
+            <span id="traffic-light-summary"></span>
+          </div>
+          <form class="settings-box" id="traffic-light-form">
+            <label>
+              Rot bis kg
+              <input name="redLimitKg" type="number" min="0" step="0.1" value="0">
+            </label>
+            <label>
+              Orange/Grün ab kg
+              <input name="thresholdKg" type="number" min="0" step="0.1" value="3">
+            </label>
+            <button type="submit">Ampel speichern</button>
+          </form>
+        </section>
+
+        <section class="details admin-only">
+          <div class="details-heading">
+            <h2>Drucker-Monitoring</h2>
+            <span id="printer-monitoring-summary"></span>
+          </div>
+          <form class="settings-box" id="printer-monitoring-form">
+            <label>
+              Aktualisierung in ms
+              <input name="statusFlushIntervalMs" type="number" min="1000" max="60000" step="500" value="5000">
+            </label>
+            <button type="submit">Monitoring speichern</button>
+          </form>
+        </section>
       </section>
 
       <footer class="app-footer">
         <span>Printer Farm Admin</span>
-        <span id="app-version">v0.0.17a</span>
+        <span id="app-version">v0.0.24a</span>
       </footer>
     </main>
 
@@ -292,6 +340,121 @@
         <div class="modal-actions">
           <button class="secondary-button" type="button" data-modal-close>Abbrechen</button>
           <button type="submit">Lagerplatz speichern</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="printer-modal">
+      <form class="modal-card" id="printer-form">
+        <div class="modal-heading">
+          <div>
+            <p class="eyebrow">3D-Drucker</p>
+            <h2>Drucker anlegen</h2>
+          </div>
+          <button class="icon-button" type="button" data-modal-close aria-label="Schließen">×</button>
+        </div>
+        <div class="form-grid">
+          <label>
+            Name
+            <input name="name" required placeholder="Bambu P1S 01">
+          </label>
+          <label>
+            Modell
+            <select name="model">
+              <option value="P1S">P1S</option>
+              <option value="X1C">X1C</option>
+              <option value="H2D">H2D</option>
+              <option value="unknown">Unbekannt</option>
+            </select>
+          </label>
+          <label>
+            IP-Adresse
+            <input name="ipAddress" required placeholder="192.168.178.50">
+          </label>
+          <label>
+            Seriennummer
+            <input name="serialNumber" required placeholder="00M00A000000000">
+          </label>
+          <label>
+            Access Code
+            <input name="accessCode" type="password" required autocomplete="off" placeholder="LAN Access Code">
+          </label>
+          <label>
+            Standort
+            <input name="location" placeholder="Druckraum">
+          </label>
+          <label class="checkbox-label">
+            <input name="hasAms" type="checkbox">
+            AMS vorhanden
+          </label>
+          <label class="checkbox-label">
+            <input name="enableFileCacheLookup" type="checkbox">
+            Projektname über Datei-Cache ermitteln
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button class="secondary-button" type="button" data-modal-close>Abbrechen</button>
+          <button type="submit">Drucker speichern</button>
+        </div>
+      </form>
+    </dialog>
+
+    <dialog class="modal" id="printer-edit-modal">
+      <form class="modal-card" id="printer-edit-form">
+        <input name="id" type="hidden">
+        <div class="modal-heading">
+          <div>
+            <p class="eyebrow">3D-Drucker</p>
+            <h2>Drucker bearbeiten</h2>
+          </div>
+          <button class="icon-button" type="button" data-modal-close aria-label="Schließen">×</button>
+        </div>
+        <div class="form-grid">
+          <label>
+            Name
+            <input name="name" required placeholder="Bambu P1S 01">
+          </label>
+          <label>
+            Modell
+            <select name="model">
+              <option value="P1S">P1S</option>
+              <option value="X1C">X1C</option>
+              <option value="H2D">H2D</option>
+              <option value="unknown">Unbekannt</option>
+            </select>
+          </label>
+          <label>
+            IP-Adresse
+            <input name="ipAddress" required placeholder="192.168.178.50">
+          </label>
+          <label>
+            Seriennummer
+            <input name="serialNumber" required placeholder="00M00A000000000">
+          </label>
+          <label>
+            Neuer Access Code
+            <input name="accessCode" type="password" autocomplete="off" placeholder="Leer lassen = unverändert">
+          </label>
+          <label>
+            Standort
+            <input name="location" placeholder="Druckraum">
+          </label>
+          <label class="checkbox-label">
+            <input name="hasAms" type="checkbox">
+            AMS vorhanden
+          </label>
+          <label class="checkbox-label">
+            <input name="enableFileCacheLookup" type="checkbox">
+            Projektname über Datei-Cache ermitteln
+          </label>
+          <label class="checkbox-label">
+            <input name="isActive" type="checkbox">
+            Aktiv
+          </label>
+        </div>
+        <div class="modal-actions">
+          <button class="secondary-button" type="button" data-modal-close>Abbrechen</button>
+          <button type="submit">Änderungen speichern</button>
         </div>
       </form>
     </dialog>

@@ -1,0 +1,7 @@
+.git
+data
+node_modules
+npm-debug.log
+config.php
+Dockerfile
+docker-compose.yml

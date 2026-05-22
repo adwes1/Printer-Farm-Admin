@@ -1,0 +1,10 @@
+{
+  "print": {
+    "mc_percent": 7,
+    "bed_temper": 52.1,
+    "subtask_name": "unknown-h2d-job"
+  },
+  "vendor": {
+    "future_field": true
+  }
+}

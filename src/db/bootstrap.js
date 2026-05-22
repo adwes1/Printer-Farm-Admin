@@ -1,7 +1,8 @@
 import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
-import { randomBytes, scryptSync } from "node:crypto";
 import path from "node:path";
+import { hashPassword } from "../auth/passwords.js";
 import { config } from "../config.js";
+import { quoteSql } from "./sql.js";
 import { SqliteCli } from "./sqliteCli.js";
 
 const MIGRATION_TABLE_SQL = `
@@ -34,16 +35,6 @@ async function readMigrations() {
       sql: await readFile(path.join(config.migrationsDir, file), "utf8")
     }))
   );
-}
-
-function quoteSql(value) {
-  return `'${String(value).replaceAll("'", "''")}'`;
-}
-
-function hashPassword(password) {
-  const salt = randomBytes(16).toString("hex");
-  const hash = scryptSync(String(password), salt, 64).toString("hex");
-  return `scrypt:${salt}:${hash}`;
 }
 
 async function applyMigration(db, migration) {
