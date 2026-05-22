@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { test } from "node:test";
-import { mergeBambuStatus, normalizeBambuStatus } from "../src/bambu/normalizer.js";
+import { createConnectedStatus, mergeBambuStatus, normalizeBambuStatus } from "../src/bambu/normalizer.js";
 
 async function fixture(name) {
   const source = await readFile(new URL(`./fixtures/bambu/${name}.json`, import.meta.url), "utf8");
@@ -52,6 +52,21 @@ test("liest X1C Kammer-Temperatur aus verschachtelter info.temp Struktur", () =>
   assert.equal(status.chamberTemp, 39);
 });
 
+test("normalisiert P1S Teilpayload ohne Status als bereit", () => {
+  const status = normalizeBambuStatus({
+    print: {
+      command: "push_status",
+      nozzle_temper: 22.2,
+      bed_temper: 22.0
+    }
+  }, { id: 4, model: "P1S" });
+
+  assert.equal(status.online, true);
+  assert.equal(status.state, "idle");
+  assert.equal(status.nozzleTemp, 22.2);
+  assert.equal(status.bedTemp, 22.0);
+});
+
 test("bleibt bei H2D/unbekannter Payload mit fehlenden Feldern defensiv", async () => {
   const status = normalizeBambuStatus(await fixture("h2d-partial"), { id: 3 });
 
@@ -86,6 +101,20 @@ test("merged partielle Bambu Push-Statusmeldungen in den letzten bekannten Statu
   assert.equal(merged.currentLayer, 94);
 });
 
+test("merged Online-Payload nicht mit vorherigem Offline-Status", () => {
+  const previous = {
+    online: false,
+    state: "offline",
+    nozzleTemp: null
+  };
+  const next = normalizeBambuStatus({ print: { command: "push_status", nozzle_temper: 22.2 } }, { id: 5, model: "P1S" });
+  const merged = mergeBambuStatus(previous, next);
+
+  assert.equal(merged.online, true);
+  assert.equal(merged.state, "idle");
+  assert.equal(merged.nozzleTemp, 22.2);
+});
+
 test("Offline-Status bleibt leer und uebernimmt keine alten Messwerte", () => {
   const previous = {
     online: true,
@@ -110,4 +139,14 @@ test("Offline-Status bleibt leer und uebernimmt keine alten Messwerte", () => {
   assert.equal(offline.progressPercent, null);
   assert.equal(offline.nozzleTemp, null);
   assert.equal(previous.progressPercent, 56);
+});
+
+test("Connected-Status markiert Drucker sofort online ohne alte Druckdaten", () => {
+  const connected = createConnectedStatus({ id: 9 });
+
+  assert.equal(connected.online, true);
+  assert.equal(connected.state, "unknown");
+  assert.equal(connected.progressPercent, null);
+  assert.equal(connected.currentFile, null);
+  assert.equal(connected.nozzleTemp, null);
 });

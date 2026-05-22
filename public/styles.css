@@ -68,7 +68,8 @@ h2 {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -133,7 +134,8 @@ button:disabled {
 }
 
 input,
-select {
+select,
+textarea {
   width: 100%;
   min-height: 44px;
   border: 1px solid var(--line);
@@ -145,9 +147,16 @@ select {
 }
 
 input:focus,
-select:focus {
+select:focus,
+textarea:focus {
   outline: 2px solid rgba(255, 43, 214, 0.55);
   outline-offset: 2px;
+}
+
+textarea {
+  min-height: 86px;
+  padding-top: 10px;
+  resize: vertical;
 }
 
 input[type="color"] {
@@ -380,6 +389,12 @@ td span,
   background: rgba(13, 16, 32, 0.88);
   padding: 12px;
   box-shadow: 0 18px 45px rgba(0, 0, 0, 0.22), inset 0 0 22px rgba(0, 229, 255, 0.04);
+  cursor: pointer;
+}
+
+.overview-printer-card:focus-visible {
+  outline: 2px solid rgba(0, 229, 255, 0.68);
+  outline-offset: 3px;
 }
 
 .overview-printer-header,
@@ -483,6 +498,129 @@ td span,
   box-shadow: 0 0 22px rgba(0, 229, 255, 0.11), inset 0 0 24px rgba(255, 43, 214, 0.04);
 }
 
+.maintenance-printer-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.maintenance-printer-card {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+  padding: 14px;
+  border: 1px solid var(--line-soft);
+  border-radius: 8px;
+  background: rgba(13, 16, 32, 0.88);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: 0 18px 45px rgba(0, 0, 0, 0.22), inset 0 0 22px rgba(0, 229, 255, 0.04);
+}
+
+.maintenance-printer-card:hover {
+  border-color: rgba(0, 229, 255, 0.45);
+  box-shadow: 0 0 22px rgba(0, 229, 255, 0.11), inset 0 0 24px rgba(255, 43, 214, 0.04);
+}
+
+.maintenance-printer-title {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.maintenance-printer-title strong,
+.maintenance-printer-title span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.maintenance-printer-title strong {
+  color: var(--text);
+  font-size: 0.95rem;
+}
+
+.maintenance-printer-title span,
+.maintenance-printer-foot {
+  color: var(--muted);
+  font-size: 0.78rem;
+  font-weight: 800;
+}
+
+.maintenance-printer-card ul {
+  display: grid;
+  gap: 7px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.maintenance-printer-card li,
+.maintenance-history-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 8px;
+  align-items: baseline;
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.maintenance-printer-card li span,
+.maintenance-history-item span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.maintenance-printer-card li strong,
+.maintenance-history-item strong {
+  color: var(--text);
+}
+
+.maintenance-history {
+  display: grid;
+  gap: 10px;
+}
+
+.maintenance-history h3 {
+  margin: 0;
+  color: var(--cyan);
+  font-size: 0.9rem;
+  text-transform: uppercase;
+}
+
+#maintenance-history-list {
+  display: grid;
+  gap: 8px;
+  max-height: 260px;
+  overflow: auto;
+}
+
+.maintenance-history-item {
+  padding: 10px 12px;
+  border: 1px solid var(--line-soft);
+  border-radius: 6px;
+  background: rgba(7, 10, 22, 0.5);
+}
+
+.maintenance-history-item small {
+  grid-column: 1 / -1;
+  color: var(--muted);
+}
+
+.empty-state {
+  margin: 0;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.muted-row {
+  opacity: 0.6;
+}
+
 .status-dot {
   width: 12px;
   height: 12px;
@@ -516,6 +654,7 @@ td span,
 }
 
 .printer-monitor-card {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1fr) clamp(150px, 38%, 230px);
   grid-template-areas:
@@ -752,6 +891,14 @@ td span,
   gap: 14px;
 }
 
+.wide-field {
+  grid-column: 1 / -1;
+}
+
+.maintenance-entry-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .form-grid button {
   align-self: end;
 }
@@ -766,6 +913,38 @@ td span,
   background: rgba(13, 16, 32, 0.88);
   padding: 16px;
   box-shadow: 0 18px 45px rgba(0, 0, 0, 0.22);
+}
+
+.settings-subtabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 14px;
+}
+
+.settings-subtab {
+  min-height: 38px;
+  border-color: var(--line-soft);
+  background: rgba(13, 16, 32, 0.78);
+  color: var(--muted);
+  padding: 0 14px;
+  font-size: 0.84rem;
+}
+
+.settings-subtab.active,
+.settings-subtab:hover:not(:disabled) {
+  border-color: var(--cyan);
+  background: rgba(0, 229, 255, 0.14);
+  color: var(--text);
+  box-shadow: 0 0 18px rgba(0, 229, 255, 0.14);
+}
+
+.settings-panel {
+  display: none;
+}
+
+.settings-panel.active {
+  display: block;
 }
 
 .modal {
@@ -797,6 +976,30 @@ td span,
   border-radius: 8px;
   background: linear-gradient(180deg, rgba(19, 23, 42, 0.98), rgba(8, 11, 24, 0.98));
   box-shadow: 0 24px 70px rgba(0, 0, 0, 0.55), 0 0 50px rgba(0, 229, 255, 0.13);
+}
+
+.modal.printer-detail-modal {
+  position: relative;
+  width: min(520px, calc(100% - 64px));
+  overflow: visible;
+}
+
+#printer-detail-content {
+  width: 100%;
+}
+
+#printer-detail-content .printer-monitor-card {
+  width: 100%;
+}
+
+.modal.printer-detail-modal .printer-detail-close {
+  position: absolute;
+  top: -43px;
+  right: -5px;
+  z-index: 3;
+  width: 34px;
+  min-height: 34px;
+  font-size: 1.1rem;
 }
 
 .modal-heading,
@@ -904,7 +1107,8 @@ td span,
 
 @media (max-width: 980px) {
   .printer-list,
-  .printer-dashboard {
+  .printer-dashboard,
+  .maintenance-printer-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
@@ -943,6 +1147,10 @@ td span,
   }
 
   .printer-list {
+    grid-template-columns: 1fr;
+  }
+
+  .maintenance-printer-grid {
     grid-template-columns: 1fr;
   }
 

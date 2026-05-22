@@ -30,8 +30,7 @@
       <nav class="module-tabs" aria-label="Module">
         <button class="nav-tab active" type="button" data-view="overview">Übersicht</button>
         <button class="nav-tab" type="button" data-view="materials">Materialverwaltung</button>
-        <button class="nav-tab" type="button" data-view="storage">Lagerplätze</button>
-        <button class="nav-tab" type="button" data-view="printers">3D-Drucker</button>
+        <button class="nav-tab" type="button" data-view="maintenance">Wartung</button>
         <button class="nav-tab" type="button" data-view="settings">Einstellungen</button>
         <button class="nav-tab logout-tab" id="logout-button" type="button">Abmelden</button>
       </nav>
@@ -96,8 +95,65 @@
         </section>
       </section>
 
-      <section class="view" id="storage-view">
+      <section class="view" id="maintenance-view">
         <section class="details">
+          <div class="details-heading">
+            <h2>Wartung</h2>
+            <span id="maintenance-summary"></span>
+          </div>
+          <div class="maintenance-printer-grid" id="maintenance-printer-list"></div>
+        </section>
+      </section>
+
+      <section class="view" id="settings-view">
+        <div class="permission-banner" id="permission-banner" hidden>
+          User können alle Module sehen und bearbeiten, außer die Einstellungen.
+        </div>
+
+        <div class="settings-subtabs admin-only" aria-label="Einstellungsbereiche">
+          <button class="settings-subtab active" type="button" data-settings-tab="users">Benutzer</button>
+          <button class="settings-subtab" type="button" data-settings-tab="printers">3D-Drucker</button>
+          <button class="settings-subtab" type="button" data-settings-tab="storage">Lagerplätze</button>
+          <button class="settings-subtab" type="button" data-settings-tab="materials">Material-Ampel</button>
+          <button class="settings-subtab" type="button" data-settings-tab="monitoring">Drucker-Monitoring</button>
+          <button class="settings-subtab" type="button" data-settings-tab="maintenance">Wartungsarten</button>
+        </div>
+
+        <section class="details admin-only settings-panel active" data-settings-panel="users">
+          <div class="details-heading">
+            <h2>Benutzer</h2>
+            <div class="heading-actions">
+              <span id="user-summary"></span>
+              <button type="button" data-modal-open="user-modal">User anlegen</button>
+            </div>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>E-Mail</th>
+                  <th>Rechte</th>
+                  <th>Aktion</th>
+                </tr>
+              </thead>
+              <tbody id="user-list"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="details admin-only settings-panel" data-settings-panel="printers">
+          <div class="details-heading">
+            <h2>3D-Drucker</h2>
+            <div class="heading-actions">
+              <span id="printer-summary"></span>
+              <button type="button" data-modal-open="printer-modal">Drucker anlegen</button>
+            </div>
+          </div>
+          <div class="printer-dashboard" id="printer-cards"></div>
+        </section>
+
+        <section class="details admin-only settings-panel" data-settings-panel="storage">
           <div class="details-heading">
             <h2>Verwaltete Lagerplätze</h2>
             <div class="heading-actions">
@@ -121,50 +177,8 @@
             </table>
           </div>
         </section>
-      </section>
 
-      <section class="view" id="printers-view">
-        <section class="details">
-          <div class="details-heading">
-            <h2>3D-Drucker</h2>
-            <div class="heading-actions">
-              <span id="printer-summary"></span>
-              <button type="button" data-modal-open="printer-modal">Drucker anlegen</button>
-            </div>
-          </div>
-          <div class="printer-dashboard" id="printer-cards"></div>
-        </section>
-      </section>
-
-      <section class="view" id="settings-view">
-        <div class="permission-banner" id="permission-banner" hidden>
-          User können alle Module sehen und bearbeiten, außer die Einstellungen.
-        </div>
-
-        <section class="details admin-only">
-          <div class="details-heading">
-            <h2>Benutzer</h2>
-            <div class="heading-actions">
-              <span id="user-summary"></span>
-              <button type="button" data-modal-open="user-modal">User anlegen</button>
-            </div>
-          </div>
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>E-Mail</th>
-                  <th>Rechte</th>
-                  <th>Aktion</th>
-                </tr>
-              </thead>
-              <tbody id="user-list"></tbody>
-            </table>
-          </div>
-        </section>
-
-        <section class="details admin-only">
+        <section class="details admin-only settings-panel" data-settings-panel="materials">
           <div class="details-heading">
             <h2>Material-Ampel</h2>
             <span id="traffic-light-summary"></span>
@@ -182,7 +196,7 @@
           </form>
         </section>
 
-        <section class="details admin-only">
+        <section class="details admin-only settings-panel" data-settings-panel="monitoring">
           <div class="details-heading">
             <h2>Drucker-Monitoring</h2>
             <span id="printer-monitoring-summary"></span>
@@ -194,6 +208,42 @@
             </label>
             <button type="submit">Monitoring speichern</button>
           </form>
+        </section>
+
+        <section class="details admin-only settings-panel" data-settings-panel="maintenance">
+          <div class="details-heading">
+            <h2>Wartungsarten</h2>
+            <span id="maintenance-task-summary"></span>
+          </div>
+          <form class="settings-box" id="maintenance-task-form">
+            <label>
+              Wartung
+              <input name="name" required placeholder="Düse ausgetauscht">
+            </label>
+            <label>
+              Fällig nach Stunden
+              <input name="dueAfterHours" type="number" min="0" step="1" value="500">
+            </label>
+            <label>
+              Notiz
+              <input name="description" placeholder="Optional">
+            </label>
+            <button type="submit">Wartung speichern</button>
+          </form>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Wartung</th>
+                  <th>Intervall</th>
+                  <th>Notiz</th>
+                  <th>Status</th>
+                  <th>Aktion</th>
+                </tr>
+              </thead>
+              <tbody id="maintenance-task-list"></tbody>
+            </table>
+          </div>
         </section>
       </section>
 
@@ -310,6 +360,45 @@
       </form>
     </dialog>
 
+    <dialog class="modal" id="maintenance-modal">
+      <form class="modal-card" id="maintenance-form">
+        <input name="printerId" type="hidden">
+        <div class="modal-heading">
+          <div>
+            <p class="eyebrow">Wartung</p>
+            <h2 id="maintenance-modal-title">Wartung eintragen</h2>
+          </div>
+          <button class="icon-button" type="button" data-modal-close aria-label="Schließen">×</button>
+        </div>
+        <div class="form-grid maintenance-entry-grid">
+          <label class="wide-field">
+            Wartungsart
+            <select name="taskId" id="maintenance-task-select" required></select>
+          </label>
+          <label>
+            Datum
+            <input name="performedAt" type="date" required>
+          </label>
+          <label>
+            Betriebsstunden
+            <input name="performedAtHours" type="number" min="0" step="1" required placeholder="1250">
+          </label>
+          <label class="wide-field">
+            Notiz
+            <textarea name="note" rows="3" placeholder="Optional"></textarea>
+          </label>
+        </div>
+        <div class="maintenance-history">
+          <h3>Historie</h3>
+          <div id="maintenance-history-list"></div>
+        </div>
+        <div class="modal-actions">
+          <button class="secondary-button" type="button" data-modal-close>Abbrechen</button>
+          <button type="submit">Wartung speichern</button>
+        </div>
+      </form>
+    </dialog>
+
     <dialog class="modal" id="storage-modal">
       <form class="modal-card" id="storage-form">
         <div class="modal-heading">
@@ -383,6 +472,10 @@
             Standort
             <input name="location" placeholder="Druckraum">
           </label>
+          <label>
+            Betriebsstunden
+            <input name="operatingHours" type="number" min="0" step="0.1" value="0">
+          </label>
           <label class="checkbox-label">
             <input name="hasAms" type="checkbox">
             AMS vorhanden
@@ -438,6 +531,10 @@
           <label>
             Standort
             <input name="location" placeholder="Druckraum">
+          </label>
+          <label>
+            Betriebsstunden
+            <input name="operatingHours" type="number" min="0" step="0.1">
           </label>
           <label class="checkbox-label">
             <input name="hasAms" type="checkbox">
@@ -567,6 +664,11 @@
           <button type="submit">Änderungen speichern</button>
         </div>
       </form>
+    </dialog>
+
+    <dialog class="modal printer-detail-modal" id="printer-detail-modal">
+      <button class="icon-button printer-detail-close" type="button" data-modal-close aria-label="Schließen">×</button>
+      <div id="printer-detail-content"></div>
     </dialog>
 
     <div class="toast" id="toast" role="status" aria-live="polite"></div>

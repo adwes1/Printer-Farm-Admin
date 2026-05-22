@@ -5,6 +5,8 @@ const state = {
     storageLocations: [],
     printers: [],
     users: [],
+    maintenanceTasks: [],
+    maintenanceRecords: [],
     trafficLight: {
       redLimitGrams: 0,
       thresholdGrams: 3000
@@ -14,6 +16,7 @@ const state = {
     }
   },
   view: "overview",
+  settingsTab: "users",
   role: "user",
   currentUser: null
 };
@@ -40,6 +43,14 @@ const elements = {
   quantityGrams: document.querySelector("#quantity-grams"),
   storageSummary: document.querySelector("#storage-summary"),
   storageCards: document.querySelector("#storage-cards"),
+  maintenanceSummary: document.querySelector("#maintenance-summary"),
+  maintenancePrinterList: document.querySelector("#maintenance-printer-list"),
+  maintenanceTaskSummary: document.querySelector("#maintenance-task-summary"),
+  maintenanceTaskList: document.querySelector("#maintenance-task-list"),
+  maintenanceTaskForm: document.querySelector("#maintenance-task-form"),
+  maintenanceTaskSelect: document.querySelector("#maintenance-task-select"),
+  maintenanceHistoryList: document.querySelector("#maintenance-history-list"),
+  maintenanceModalTitle: document.querySelector("#maintenance-modal-title"),
   userSummary: document.querySelector("#user-summary"),
   userList: document.querySelector("#user-list"),
   trafficLightSummary: document.querySelector("#traffic-light-summary"),
@@ -151,6 +162,65 @@ function formatDateTime(value) {
   });
 }
 
+function formatDate(value) {
+  if (!value) {
+    return "–";
+  }
+  return new Date(`${value}T00:00:00`).toLocaleDateString("de-DE", {
+    dateStyle: "medium"
+  });
+}
+
+function todayInputValue() {
+  return new Date().toISOString().slice(0, 10);
+}
+
+function daysSince(value) {
+  if (!value) {
+    return "nie";
+  }
+  const start = new Date(`${value}T00:00:00`).getTime();
+  const today = new Date(todayInputValue()).getTime();
+  if (!Number.isFinite(start) || !Number.isFinite(today)) {
+    return "nie";
+  }
+  const days = Math.max(0, Math.floor((today - start) / 86400000));
+  return days === 0 ? "heute" : `vor ${days} T.`;
+}
+
+function formatHours(value) {
+  const hours = Number(value || 0);
+  if (!Number.isFinite(hours) || hours <= 0) {
+    return "Keine Vorgabe";
+  }
+  return `${hours.toLocaleString("de-DE")} h`;
+}
+
+function formatOperatingHours(value) {
+  const hours = Number(value || 0);
+  return `${Math.max(0, Number.isFinite(hours) ? hours : 0).toLocaleString("de-DE", { maximumFractionDigits: 1 })} h`;
+}
+
+function maintenanceDueLabel(task, record, printer) {
+  const dueAfterHours = Number(task.dueAfterHours || 0);
+  if (dueAfterHours <= 0) {
+    return "Notiz";
+  }
+  if (!record) {
+    return "fällig";
+  }
+
+  const currentHours = Number(printer.operatingHours || 0);
+  const performedAtHours = Number(record.performedAtHours || 0);
+  const usedHours = Math.max(0, currentHours - performedAtHours);
+  const remainingHours = dueAfterHours - usedHours;
+
+  if (remainingHours <= 0) {
+    return `${Math.ceil(Math.abs(remainingHours)).toLocaleString("de-DE")} h überfällig`;
+  }
+  return `in ${Math.ceil(remainingHours).toLocaleString("de-DE")} h`;
+}
+
 function printProjectName(status) {
   return status.currentFile || status.subtaskName || "Kein Projektname verfügbar";
 }
@@ -165,6 +235,25 @@ function materialLabel(material) {
 
 function materialById(id) {
   return state.data.materials.find((material) => String(material.id) === String(id));
+}
+
+function maintenanceRecordsForPrinter(printerId) {
+  return state.data.maintenanceRecords.filter((record) => String(record.printerId) === String(printerId));
+}
+
+function activeMaintenanceTasks() {
+  return state.data.maintenanceTasks.filter((task) => task.isActive);
+}
+
+function latestMaintenanceByTask(printerId) {
+  const latest = new Map();
+  for (const record of maintenanceRecordsForPrinter(printerId)) {
+    const key = String(record.taskId || record.taskName);
+    if (!latest.has(key)) {
+      latest.set(key, record);
+    }
+  }
+  return latest;
 }
 
 function materialTrafficLight(material) {
@@ -229,6 +318,23 @@ function setView(view) {
   document.querySelectorAll(".view").forEach((section) => {
     section.classList.toggle("active", section.id === `${view}-view`);
   });
+
+  if (view === "settings") {
+    setSettingsTab(state.settingsTab);
+  }
+}
+
+function setSettingsTab(tab) {
+  const targetTab = ["users", "printers", "storage", "materials", "monitoring", "maintenance"].includes(tab) ? tab : "users";
+  state.settingsTab = targetTab;
+
+  document.querySelectorAll("[data-settings-tab]").forEach((button) => {
+    button.classList.toggle("active", button.dataset.settingsTab === targetTab);
+  });
+
+  document.querySelectorAll("[data-settings-panel]").forEach((panel) => {
+    panel.classList.toggle("active", panel.dataset.settingsPanel === targetTab);
+  });
 }
 
 function applyPermissions() {
@@ -247,7 +353,12 @@ function renderOverview() {
 
   elements.materialTypes.textContent = `${materialTypes.size} Materialtyp(en)`;
 
-  elements.overviewMaterials.innerHTML = state.data.materials
+  const overviewMaterials = state.data.materials.filter((material) => {
+    const trafficLight = materialTrafficLight(material);
+    return trafficLight.tone === "red" || trafficLight.tone === "orange";
+  });
+
+  elements.overviewMaterials.innerHTML = overviewMaterials
     .map((material) => {
       const trafficLight = materialTrafficLight(material);
       return `
@@ -270,7 +381,11 @@ function renderOverview() {
         </tr>
       `;
     })
-    .join("");
+    .join("") || `
+      <tr>
+        <td colspan="6">Keine knappen Materialien.</td>
+      </tr>
+    `;
 
   const visiblePrinters = state.data.printers.filter((printer) => {
     const state = printerDisplayState(printer);
@@ -294,7 +409,7 @@ function renderOverview() {
         ? `<img class="overview-printer-preview-image" src="${escapeHtml(printer.previewImageUrl)}" alt="${escapeHtml(printProjectName(status))}">`
         : "<div class=\"overview-printer-preview-placeholder\">Keine Vorschau</div>";
       return `
-        <article class="overview-printer-card">
+        <article class="overview-printer-card" data-overview-printer="${printer.id}" tabindex="0" role="button" aria-label="${escapeHtml(printer.name)} Details öffnen">
           <div class="overview-printer-header">
             <strong>${escapeHtml(printer.name)}</strong>
             <span>
@@ -318,6 +433,67 @@ function renderOverview() {
     .join("");
 }
 
+function renderPrinterDetailCard(printer, { actions = true, closeButton = false } = {}) {
+  const rawStatus = printer.status || {};
+  const status = printerOnline(printer) ? rawStatus : {};
+  const stateName = printerDisplayState(printer);
+  const hasErrors = Boolean(status.hmsErrorsJson && status.hmsErrorsJson !== "{}" && status.hmsErrorsJson !== "[]");
+  const progressWidth = printerOnline(printer) ? Math.max(0, Math.min(100, Number(status.progressPercent || 0))) : 0;
+  const preview = printer.previewImageUrl && printerOnline(printer)
+    ? `<img class="print-preview-image" src="${escapeHtml(printer.previewImageUrl)}" alt="${escapeHtml(printProjectName(status))}">`
+    : "<div class=\"print-preview-placeholder\">Keine Vorschau</div>";
+
+  return `
+    <article class="printer-monitor-card ${hasErrors ? "has-errors" : ""}">
+      ${closeButton ? "<button class=\"icon-button printer-detail-close\" type=\"button\" data-modal-close aria-label=\"Schließen\">×</button>" : ""}
+      <div class="printer-card-header">
+        <div class="printer-title-line">
+          <strong>${escapeHtml(printer.name)}</strong>
+          <span>${escapeHtml(printer.model || "unknown")}</span>
+          <span>${escapeHtml(printer.ipAddress || "Keine IP")}</span>
+        </div>
+        <div class="printer-state-line">
+          <span class="status-dot ${printerTrafficTone(printer)}" title="${escapeHtml(statusLabel(stateName))}"></span>
+          <strong>${escapeHtml(statusLabel(stateName))}</strong>
+        </div>
+      </div>
+      <div class="printer-card-main">
+        <div class="printer-metrics">
+          <span>Nozzle: <strong>${displayTemperature(status.nozzleTemp)} / ${displayTemperature(status.nozzleTargetTemp)}</strong></span>
+          <span>Bett: <strong>${displayTemperature(status.bedTemp)} / ${displayTemperature(status.bedTargetTemp)}</strong></span>
+          <span>Layer: <strong>${displayValue(status.currentLayer)} / ${displayValue(status.totalLayers)}</strong></span>
+          <span>Kammer: <strong>${displayTemperature(status.chamberTemp)}</strong></span>
+        </div>
+        <div class="print-preview-frame">
+          ${preview}
+        </div>
+        <div class="printer-flags">
+          ${printer.hasAms ? "<span>AMS</span>" : ""}
+          ${printer.enableFileCacheLookup ? "<span>Datei-Cache</span>" : ""}
+          ${hasErrors ? "<span class=\"error-pill\">HMS</span>" : ""}
+        </div>
+      </div>
+      <div class="printer-progress-meta">
+        <span>Fortschritt ${displayValue(status.progressPercent, " %")}</span>
+        <span>Restzeit ${displayValue(status.remainingMinutes, " min")}</span>
+      </div>
+      <div class="progress-line">
+        <span style="width: ${progressWidth}%"></span>
+      </div>
+      ${actions ? `
+        <div class="row-actions">
+          <button class="secondary-button compact-button" type="button" data-printer-test="${printer.id}">Testen</button>
+          <button class="secondary-button compact-button" type="button" data-printer-edit="${printer.id}">Bearbeiten</button>
+          <button class="danger-button compact-button" type="button" data-printer-delete="${printer.id}">Löschen</button>
+        </div>
+      ` : ""}
+      <div class="printer-file-row">
+        <span>Update ${formatDateTime(status.receivedAt)}</span>
+      </div>
+    </article>
+  `;
+}
+
 function renderPrinters() {
   const summary = state.data.printers.reduce((counts, printer) => {
     const status = printerDisplayState(printer);
@@ -330,62 +506,7 @@ function renderPrinters() {
     .join(" · ") || "Keine Drucker";
 
   elements.printerCards.innerHTML = state.data.printers
-    .map((printer) => {
-      const rawStatus = printer.status || {};
-      const status = printerOnline(printer) ? rawStatus : {};
-      const stateName = printerDisplayState(printer);
-      const hasErrors = Boolean(status.hmsErrorsJson && status.hmsErrorsJson !== "{}" && status.hmsErrorsJson !== "[]");
-      const progressWidth = printerOnline(printer) ? Math.max(0, Math.min(100, Number(status.progressPercent || 0))) : 0;
-      const preview = printer.previewImageUrl && printerOnline(printer)
-        ? `<img class="print-preview-image" src="${escapeHtml(printer.previewImageUrl)}" alt="${escapeHtml(printProjectName(status))}">`
-        : "<div class=\"print-preview-placeholder\">Keine Vorschau</div>";
-      return `
-        <article class="printer-monitor-card ${hasErrors ? "has-errors" : ""}">
-          <div class="printer-card-header">
-            <div class="printer-title-line">
-              <strong>${escapeHtml(printer.name)}</strong>
-              <span>${escapeHtml(printer.model || "unknown")}</span>
-              <span>${escapeHtml(printer.ipAddress || "Keine IP")}</span>
-            </div>
-            <div class="printer-state-line">
-              <span class="status-dot ${printerTrafficTone(printer)}" title="${escapeHtml(statusLabel(stateName))}"></span>
-              <strong>${escapeHtml(statusLabel(stateName))}</strong>
-            </div>
-          </div>
-          <div class="printer-card-main">
-            <div class="printer-metrics">
-              <span>Nozzle: <strong>${displayTemperature(status.nozzleTemp)} / ${displayTemperature(status.nozzleTargetTemp)}</strong></span>
-              <span>Bett: <strong>${displayTemperature(status.bedTemp)} / ${displayTemperature(status.bedTargetTemp)}</strong></span>
-              <span>Layer: <strong>${displayValue(status.currentLayer)} / ${displayValue(status.totalLayers)}</strong></span>
-              <span>Kammer: <strong>${displayTemperature(status.chamberTemp)}</strong></span>
-            </div>
-            <div class="print-preview-frame">
-              ${preview}
-            </div>
-            <div class="printer-flags">
-              ${printer.hasAms ? "<span>AMS</span>" : ""}
-              ${printer.enableFileCacheLookup ? "<span>Datei-Cache</span>" : ""}
-              ${hasErrors ? "<span class=\"error-pill\">HMS</span>" : ""}
-            </div>
-          </div>
-          <div class="printer-progress-meta">
-            <span>Fortschritt ${displayValue(status.progressPercent, " %")}</span>
-            <span>Restzeit ${displayValue(status.remainingMinutes, " min")}</span>
-          </div>
-          <div class="progress-line">
-            <span style="width: ${progressWidth}%"></span>
-          </div>
-          <div class="row-actions">
-            <button class="secondary-button compact-button" type="button" data-printer-test="${printer.id}">Testen</button>
-            <button class="secondary-button compact-button" type="button" data-printer-edit="${printer.id}">Bearbeiten</button>
-            <button class="danger-button compact-button" type="button" data-printer-delete="${printer.id}">Löschen</button>
-          </div>
-          <div class="printer-file-row">
-            <span>Update ${formatDateTime(status.receivedAt)}</span>
-          </div>
-        </article>
-      `;
-    })
+    .map((printer) => renderPrinterDetailCard(printer))
     .join("");
 }
 
@@ -558,12 +679,132 @@ function renderStorage() {
     .join("");
 }
 
+function renderMaintenance() {
+  const printers = state.data.printers;
+  const tasks = activeMaintenanceTasks();
+  elements.maintenanceSummary.textContent = `${printers.length} Drucker · ${tasks.length} Wartungsart(en)`;
+
+  elements.maintenancePrinterList.innerHTML = printers
+    .map((printer) => {
+      const records = maintenanceRecordsForPrinter(printer.id);
+      const latest = latestMaintenanceByTask(printer.id);
+      const latestRows = tasks
+        .slice(0, 4)
+        .map((task) => {
+          const record = latest.get(String(task.id));
+          return `
+            <li>
+              <span>${escapeHtml(task.name)}</span>
+              <strong>${maintenanceDueLabel(task, record, printer)}</strong>
+            </li>
+          `;
+        })
+        .join("");
+      return `
+        <button class="maintenance-printer-card" type="button" data-maintenance-printer="${printer.id}">
+          <span class="maintenance-printer-title">
+            <strong>${escapeHtml(printer.name)}</strong>
+            <span>${escapeHtml(printer.model || "unknown")} · ${escapeHtml(printer.ipAddress || "Keine IP")} · ${formatOperatingHours(printer.operatingHours)}</span>
+          </span>
+          <ul>
+            ${latestRows || "<li><span>Keine Wartungsarten definiert</span><strong>–</strong></li>"}
+          </ul>
+          <span class="maintenance-printer-foot">${records.length} Eintrag/Einträge</span>
+        </button>
+      `;
+    })
+    .join("") || "<p class=\"empty-state\">Keine Drucker angelegt.</p>";
+}
+
+function renderMaintenanceTaskSettings() {
+  const tasks = state.data.maintenanceTasks;
+  const activeCount = tasks.filter((task) => task.isActive).length;
+  elements.maintenanceTaskSummary.textContent = `${activeCount} aktiv`;
+  elements.maintenanceTaskList.innerHTML = tasks
+    .map((task) => `
+      <tr class="${task.isActive ? "" : "muted-row"}">
+        <td><strong>${escapeHtml(task.name)}</strong></td>
+        <td>${formatHours(task.dueAfterHours)}</td>
+        <td>${escapeHtml(task.description || "-")}</td>
+        <td>${task.isActive ? "Aktiv" : "Archiviert"}</td>
+        <td>
+          <div class="row-actions">
+            <button class="secondary-button compact-button" type="button" data-maintenance-task-edit="${task.id}">Bearbeiten</button>
+            <button class="danger-button compact-button" type="button" data-maintenance-task-delete="${task.id}">Entfernen</button>
+          </div>
+        </td>
+      </tr>
+    `)
+    .join("") || `
+      <tr>
+        <td colspan="5">Keine Wartungsarten definiert.</td>
+      </tr>
+    `;
+}
+
 function storageById(id) {
   return state.data.storageLocations.find((location) => String(location.id) === String(id));
 }
 
 function printerById(id) {
   return state.data.printers.find((printer) => String(printer.id) === String(id));
+}
+
+function maintenanceTaskById(id) {
+  return state.data.maintenanceTasks.find((task) => String(task.id) === String(id));
+}
+
+function maintenanceTaskOptions(selectedId = "") {
+  const tasks = activeMaintenanceTasks();
+  return tasks
+    .map((task) => {
+      const selected = String(task.id) === String(selectedId) ? " selected" : "";
+      return `<option value="${task.id}"${selected}>${escapeHtml(task.name)}</option>`;
+    })
+    .join("") || "<option value=\"\">Keine Wartungsarten definiert</option>";
+}
+
+function renderMaintenanceHistory(printerId) {
+  const records = maintenanceRecordsForPrinter(printerId);
+  elements.maintenanceHistoryList.innerHTML = records
+    .map((record) => `
+      <article class="maintenance-history-item">
+        <span>${escapeHtml(record.taskName)}</span>
+        <strong>${formatDate(record.performedAt)} · ${formatOperatingHours(record.performedAtHours)}</strong>
+        ${record.note ? `<small>${escapeHtml(record.note)}</small>` : ""}
+      </article>
+    `)
+    .join("") || "<p class=\"empty-state\">Noch keine Wartung dokumentiert.</p>";
+}
+
+function openMaintenanceModal(id) {
+  const printer = printerById(id);
+  if (!printer) {
+    showToast("Drucker wurde nicht gefunden.", "error");
+    return;
+  }
+
+  const form = document.querySelector("#maintenance-form");
+  form.reset();
+  form.elements.printerId.value = printer.id;
+  form.elements.performedAt.value = todayInputValue();
+  form.elements.performedAtHours.value = Number(printer.operatingHours || 0);
+  elements.maintenanceModalTitle.textContent = `Wartung: ${printer.name}`;
+  elements.maintenanceTaskSelect.innerHTML = maintenanceTaskOptions();
+  renderMaintenanceHistory(printer.id);
+  openModal("maintenance-modal");
+}
+
+function openPrinterDetailModal(id) {
+  const printer = printerById(id);
+  if (!printer) {
+    showToast("Drucker wurde nicht gefunden.", "error");
+    return;
+  }
+
+  const detail = document.querySelector("#printer-detail-content");
+  detail.innerHTML = renderPrinterDetailCard(printer, { actions: false });
+  openModal("printer-detail-modal");
 }
 
 function openEditPrinterModal(id) {
@@ -581,6 +822,7 @@ function openEditPrinterModal(id) {
   form.elements.serialNumber.value = printer.serialNumber || "";
   form.elements.accessCode.value = "";
   form.elements.location.value = printer.location || "";
+  form.elements.operatingHours.value = Number(printer.operatingHours || 0).toFixed(1);
   form.elements.hasAms.checked = Boolean(printer.hasAms);
   form.elements.enableFileCacheLookup.checked = Boolean(printer.enableFileCacheLookup);
   form.elements.isActive.checked = Boolean(printer.isActive);
@@ -834,10 +1076,12 @@ function render() {
   renderOverview();
   renderMaterials();
   renderStorage();
+  renderMaintenance();
   renderPrinters();
   renderUsers();
   renderTrafficLightSettings();
   renderPrinterMonitoringSettings();
+  renderMaintenanceTaskSettings();
   applyPermissions();
 }
 
@@ -992,8 +1236,117 @@ async function updatePrinterMonitoringSettings(form) {
   showToast("Monitoring-Einstellungen wurden gespeichert.");
 }
 
+async function createMaintenanceTask(form) {
+  const payload = Object.fromEntries(new FormData(form));
+  const response = await fetch("/api/maintenance-tasks", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  const body = await response.json();
+  if (!response.ok) {
+    throw new Error(body.error || "Wartungsart konnte nicht gespeichert werden.");
+  }
+
+  state.data = body;
+  form.reset();
+  render();
+  showToast("Wartungsart wurde gespeichert.");
+}
+
+async function updateMaintenanceTask(id) {
+  const task = maintenanceTaskById(id);
+  if (!task) {
+    showToast("Wartungsart wurde nicht gefunden.", "error");
+    return;
+  }
+
+  const name = window.prompt("Wartungsart bearbeiten", task.name);
+  if (name === null) {
+    return;
+  }
+
+  const description = window.prompt("Notiz bearbeiten", task.description || "");
+  if (description === null) {
+    return;
+  }
+
+  const dueAfterHours = window.prompt("Fällig nach Betriebsstunden", task.dueAfterHours || 0);
+  if (dueAfterHours === null) {
+    return;
+  }
+
+  const response = await fetch(`/api/maintenance-tasks/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ name, description, dueAfterHours })
+  });
+
+  const body = await response.json();
+  if (!response.ok) {
+    throw new Error(body.error || "Wartungsart konnte nicht gespeichert werden.");
+  }
+
+  state.data = body;
+  render();
+  showToast("Wartungsart wurde aktualisiert.");
+}
+
+async function deleteMaintenanceTask(id) {
+  const task = maintenanceTaskById(id);
+  const label = task ? task.name : "diese Wartungsart";
+
+  if (!window.confirm(`${label} aus den verfügbaren Wartungen entfernen? Vorhandene Historie bleibt erhalten.`)) {
+    return;
+  }
+
+  const response = await fetch(`/api/maintenance-tasks/${encodeURIComponent(id)}`, {
+    method: "DELETE"
+  });
+
+  const body = await response.json();
+  if (!response.ok) {
+    throw new Error(body.error || "Wartungsart konnte nicht entfernt werden.");
+  }
+
+  state.data = body;
+  render();
+  showToast("Wartungsart wurde entfernt.");
+}
+
+async function createMaintenanceRecord(form) {
+  const payload = Object.fromEntries(new FormData(form));
+  const printerId = payload.printerId;
+  delete payload.printerId;
+
+  const response = await fetch(`/api/printers/${encodeURIComponent(printerId)}/maintenance`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  const body = await response.json();
+  if (!response.ok) {
+    throw new Error(body.error || "Wartung konnte nicht gespeichert werden.");
+  }
+
+  state.data = body;
+  form.reset();
+  form.elements.printerId.value = printerId;
+  form.elements.performedAt.value = todayInputValue();
+  elements.maintenanceTaskSelect.innerHTML = maintenanceTaskOptions();
+  renderMaintenanceHistory(printerId);
+  render();
+  showToast("Wartung wurde dokumentiert.");
+}
+
 document.querySelectorAll(".nav-tab[data-view]").forEach((button) => {
   button.addEventListener("click", () => setView(button.dataset.view));
+});
+
+document.querySelectorAll("[data-settings-tab]").forEach((button) => {
+  button.addEventListener("click", () => setSettingsTab(button.dataset.settingsTab));
 });
 
 document.querySelectorAll("[data-modal-open]").forEach((button) => {
@@ -1002,6 +1355,13 @@ document.querySelectorAll("[data-modal-open]").forEach((button) => {
 
 document.querySelectorAll("[data-modal-close]").forEach((button) => {
   button.addEventListener("click", () => closeModalFromElement(button));
+});
+
+document.addEventListener("click", (event) => {
+  const closeButton = event.target.closest("[data-modal-close]");
+  if (closeButton) {
+    closeModalFromElement(closeButton);
+  }
 });
 
 elements.loginForm.addEventListener("submit", async (event) => {
@@ -1030,6 +1390,12 @@ document.querySelectorAll("dialog").forEach((dialog) => {
 });
 
 document.addEventListener("click", async (event) => {
+  const overviewPrinter = event.target.closest("[data-overview-printer]");
+  if (overviewPrinter) {
+    openPrinterDetailModal(overviewPrinter.dataset.overviewPrinter);
+    return;
+  }
+
   const editButton = event.target.closest("[data-material-edit]");
   if (editButton) {
     openEditMaterialModal(editButton.dataset.materialEdit);
@@ -1052,6 +1418,20 @@ document.addEventListener("click", async (event) => {
   } catch (error) {
     showToast(error.message, "error");
   }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") {
+    return;
+  }
+
+  const overviewPrinter = event.target.closest("[data-overview-printer]");
+  if (!overviewPrinter) {
+    return;
+  }
+
+  event.preventDefault();
+  openPrinterDetailModal(overviewPrinter.dataset.overviewPrinter);
 });
 
 document.addEventListener("click", async (event) => {
@@ -1097,6 +1477,35 @@ document.addEventListener("click", async (event) => {
 
   try {
     await deletePrinter(deleteButton.dataset.printerDelete);
+  } catch (error) {
+    showToast(error.message, "error");
+  }
+});
+
+document.addEventListener("click", async (event) => {
+  const printerButton = event.target.closest("[data-maintenance-printer]");
+  if (printerButton) {
+    openMaintenanceModal(printerButton.dataset.maintenancePrinter);
+    return;
+  }
+
+  const editButton = event.target.closest("[data-maintenance-task-edit]");
+  if (editButton) {
+    try {
+      await updateMaintenanceTask(editButton.dataset.maintenanceTaskEdit);
+    } catch (error) {
+      showToast(error.message, "error");
+    }
+    return;
+  }
+
+  const deleteButton = event.target.closest("[data-maintenance-task-delete]");
+  if (!deleteButton) {
+    return;
+  }
+
+  try {
+    await deleteMaintenanceTask(deleteButton.dataset.maintenanceTaskDelete);
   } catch (error) {
     showToast(error.message, "error");
   }
@@ -1173,6 +1582,15 @@ document.querySelector("#storage-edit-form").addEventListener("submit", async (e
   }
 });
 
+document.querySelector("#maintenance-form").addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    await createMaintenanceRecord(event.currentTarget);
+  } catch (error) {
+    showToast(error.message, "error");
+  }
+});
+
 document.querySelector("#printer-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
@@ -1224,6 +1642,15 @@ elements.printerMonitoringForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
     await updatePrinterMonitoringSettings(event.currentTarget);
+  } catch (error) {
+    showToast(error.message, "error");
+  }
+});
+
+elements.maintenanceTaskForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    await createMaintenanceTask(event.currentTarget);
   } catch (error) {
     showToast(error.message, "error");
   }

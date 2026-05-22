@@ -34,6 +34,26 @@ const DEFAULT_PRINTER_MONITORING_SETTINGS = {
   statusFlushIntervalMs: 5000
 };
 
+function normalizeMaintenanceTaskPayload(payload) {
+  const dueAfterHours = Number.parseInt(String(payload.dueAfterHours ?? payload.due_after_hours ?? ""), 10);
+  return {
+    name: String(payload.name || "").trim(),
+    description: String(payload.description || "").trim(),
+    dueAfterHours: Number.isFinite(dueAfterHours) ? Math.max(0, dueAfterHours) : 0
+  };
+}
+
+function normalizeMaintenanceRecordPayload(payload) {
+  const performedAt = String(payload.performedAt || payload.performed_at || "").trim();
+  const performedAtHours = Number.parseInt(String(payload.performedAtHours ?? payload.performed_at_hours ?? payload.operatingHours ?? ""), 10);
+  return {
+    taskId: parsePositiveId(payload.taskId || payload.task_id),
+    performedAt,
+    performedAtHours: Number.isFinite(performedAtHours) ? Math.max(0, performedAtHours) : null,
+    note: String(payload.note || "").trim()
+  };
+}
+
 function normalizeMaterialPayload(payload) {
   const manufacturer = String(payload.manufacturer || payload.name || "").trim();
   const type = String(payload.type || "PLA").trim();
@@ -73,6 +93,8 @@ function normalizePrinterMonitoringSettings(payload) {
 function normalizePrinterPayload(payload, existingPrinter = {}) {
   const model = ["P1S", "X1C", "H2D", "unknown"].includes(payload.model) ? payload.model : "unknown";
   const accessCode = String(payload.accessCode || payload.access_code || "").trim();
+  const requestedOperatingHours = Number.parseFloat(String(payload.operatingHours ?? payload.operating_hours ?? "").replace(",", "."));
+  const existingOperatingHours = Number(existingPrinter.operatingHours || 0);
   const hasAms = Object.hasOwn(payload, "hasAms") || Object.hasOwn(payload, "has_ams")
     ? payload.hasAms === true || payload.hasAms === "on" || payload.has_ams === 1 || payload.has_ams === "1"
     : Boolean(existingPrinter.hasAms);
@@ -91,9 +113,27 @@ function normalizePrinterPayload(payload, existingPrinter = {}) {
     accessCode: accessCode || existingPrinter.accessCode || "",
     hasAms: hasAms ? 1 : 0,
     location: String(payload.location || "").trim(),
+    operatingHours: Number.isFinite(requestedOperatingHours) ? Math.max(0, requestedOperatingHours) : existingOperatingHours,
     enableFileCacheLookup: enableFileCacheLookup ? 1 : 0,
     isActive: isActive ? 1 : 0
   };
+}
+
+function operatingSecondsSql(hours) {
+  const numericHours = Number(hours || 0);
+  return String(Math.max(0, Math.round((Number.isFinite(numericHours) ? numericHours : 0) * 3600)));
+}
+
+function parseSqliteDate(value) {
+  if (!value) {
+    return null;
+  }
+  const date = new Date(String(value).replace(" ", "T"));
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function isPrintingState(state) {
+  return ["running", "printing", "pause"].includes(String(state || "").toLowerCase());
 }
 
 function parseCookies(request) {
@@ -178,6 +218,10 @@ function latestStatusJoin() {
   `;
 }
 
+function canShowPrinterPreview(row) {
+  return Boolean(row.online && row.previewPath && ["running", "printing", "pause"].includes(row.state));
+}
+
 function mapPrinter(row, includeSecret = false) {
   const printer = {
     id: row.id,
@@ -187,8 +231,9 @@ function mapPrinter(row, includeSecret = false) {
     serialNumber: row.serialNumber || "",
     hasAms: Boolean(row.hasAms),
     enableFileCacheLookup: Boolean(row.enableFileCacheLookup),
-    previewImageUrl: row.online && row.previewPath ? `/api/printers/${row.id}/preview?ts=${encodeURIComponent(row.previewUpdatedAt || "")}` : null,
+    previewImageUrl: canShowPrinterPreview(row) ? `/api/printers/${row.id}/preview?ts=${encodeURIComponent(row.previewUpdatedAt || "")}` : null,
     location: row.location || "",
+    operatingHours: Number(row.operatingSeconds || 0) / 3600,
     isActive: Boolean(row.isActive),
     createdAt: row.createdAt,
     updatedAt: row.updatedAt,
@@ -233,6 +278,8 @@ async function listPrinters({ includeInactive = false, includeSecret = false } =
       printers.has_ams AS hasAms,
       printers.enable_file_cache_lookup AS enableFileCacheLookup,
       printers.location,
+      printers.operating_hours AS operatingHours,
+      printers.operating_seconds AS operatingSeconds,
       printers.is_active AS isActive,
       printers.created_at AS createdAt,
       printers.updated_at AS updatedAt,
@@ -281,6 +328,8 @@ async function getPrinterById(id, includeSecret = false) {
       printers.has_ams AS hasAms,
       printers.enable_file_cache_lookup AS enableFileCacheLookup,
       printers.location,
+      printers.operating_hours AS operatingHours,
+      printers.operating_seconds AS operatingSeconds,
       printers.is_active AS isActive,
       printers.created_at AS createdAt,
       printers.updated_at AS updatedAt,
@@ -310,6 +359,48 @@ async function getPrinterById(id, includeSecret = false) {
     LIMIT 1;
   `);
   return rows[0] ? mapPrinter(rows[0], includeSecret) : null;
+}
+
+async function listMaintenanceTasks({ includeInactive = true } = {}) {
+  const db = await getDb();
+  const rows = await db.query(`
+    SELECT
+      id,
+      name,
+      description,
+      due_after_hours AS dueAfterHours,
+      is_active AS isActive,
+      created_at AS createdAt,
+      updated_at AS updatedAt
+    FROM maintenance_tasks
+    ${includeInactive ? "" : "WHERE is_active = 1"}
+    ORDER BY is_active DESC, name;
+  `);
+
+  return rows.map((row) => ({
+    ...row,
+    isActive: Boolean(row.isActive)
+  }));
+}
+
+async function listMaintenanceRecords() {
+  const db = await getDb();
+  return db.query(`
+    SELECT
+      records.id,
+      records.printer_id AS printerId,
+      records.task_id AS taskId,
+      records.task_name AS taskName,
+      records.performed_at AS performedAt,
+      records.performed_at_hours AS performedAtHours,
+      records.note,
+      records.created_at AS createdAt
+    FROM printer_maintenance_records records
+    INNER JOIN printers ON printers.id = records.printer_id
+    WHERE printers.is_active = 1
+    ORDER BY records.performed_at DESC, records.id DESC
+    LIMIT 1000;
+  `);
 }
 
 async function shouldStoreRawPayloads() {
@@ -352,7 +443,8 @@ async function getLatestPrinterStatus(printerId) {
       current_file AS currentFile,
       subtask_name AS subtaskName,
       ams_status_json AS amsStatusJson,
-      hms_errors_json AS hmsErrorsJson
+      hms_errors_json AS hmsErrorsJson,
+      received_at AS receivedAt
     FROM printer_status
     WHERE printer_id = ${Number.parseInt(printerId, 10)}
     ORDER BY received_at DESC, id DESC
@@ -364,9 +456,22 @@ async function getLatestPrinterStatus(printerId) {
 
 async function savePrinterStatus(printerId, status) {
   const db = await getDb();
-  const mergedStatus = status.online ? mergeBambuStatus(await getLatestPrinterStatus(printerId), status) : status;
+  const latestStatus = status.online ? await getLatestPrinterStatus(printerId) : null;
+  const mergedStatus = status.online && latestStatus?.online ? mergeBambuStatus(latestStatus, status) : status;
   const rawJson = await shouldStoreRawPayloads() ? status.rawJson : null;
+  const latestReceivedAt = parseSqliteDate(latestStatus?.receivedAt);
+  const onlineSeconds = mergedStatus.online && latestStatus?.online && isPrintingState(latestStatus.state) && latestReceivedAt
+    ? Math.min(120, Math.max(0, Math.floor((Date.now() - latestReceivedAt.getTime()) / 1000)))
+    : 0;
   await db.exec(`
+    ${onlineSeconds > 0 ? `
+    UPDATE printers
+    SET
+      operating_seconds = operating_seconds + ${onlineSeconds},
+      operating_hours = CAST((operating_seconds + ${onlineSeconds}) / 3600 AS INTEGER),
+      updated_at = datetime('now')
+    WHERE id = ${Number.parseInt(printerId, 10)};
+    ` : ""}
     INSERT INTO printer_status (
       printer_id,
       online,
@@ -480,7 +585,7 @@ async function sendPrinterPreview(id, response) {
 
 async function getAppData(currentUser = null) {
   const db = await getDb();
-  const [materials, storageLocations, printers, users, settingsRows] = await Promise.all([
+  const [materials, storageLocations, printers, users, maintenanceTasks, maintenanceRecords, settingsRows] = await Promise.all([
     db.query(`
       SELECT
         materials.id,
@@ -509,6 +614,8 @@ async function getAppData(currentUser = null) {
       FROM users
       ORDER BY role, name;
     `),
+    listMaintenanceTasks(),
+    listMaintenanceRecords(),
     db.query(`
       SELECT key, value
       FROM app_settings
@@ -536,6 +643,8 @@ async function getAppData(currentUser = null) {
     materials,
     storageLocations,
     printers,
+    maintenanceTasks,
+    maintenanceRecords,
     trafficLight,
     printerMonitoring,
     users: currentUser?.role === "admin" ? users : []
@@ -865,6 +974,163 @@ async function updatePrinterMonitoringSettings(payload, currentUser) {
   return { ok: true, statusCode: 200, data: await getAppData(currentUser) };
 }
 
+async function createMaintenanceTask(payload, currentUser) {
+  const db = await getDb();
+  const task = normalizeMaintenanceTaskPayload(payload);
+
+  if (!task.name) {
+    return { ok: false, statusCode: 400, error: "Name der Wartungsart ist erforderlich." };
+  }
+
+  const existingRows = await db.query(`
+    SELECT id
+    FROM maintenance_tasks
+    WHERE name = ${quoteSql(task.name)} COLLATE NOCASE
+    LIMIT 1;
+  `);
+
+  if (existingRows.length > 0) {
+    await db.exec(`
+      UPDATE maintenance_tasks
+      SET
+        name = ${quoteSql(task.name)},
+        description = ${quoteSql(task.description)},
+        due_after_hours = ${numberSql(task.dueAfterHours)},
+        is_active = 1,
+        updated_at = datetime('now')
+      WHERE id = ${Number.parseInt(existingRows[0].id, 10)};
+    `);
+  } else {
+    await db.exec(`
+      INSERT INTO maintenance_tasks (name, description, due_after_hours)
+      VALUES (${quoteSql(task.name)}, ${quoteSql(task.description)}, ${numberSql(task.dueAfterHours)});
+    `);
+  }
+
+  return { ok: true, statusCode: 201, data: await getAppData(currentUser) };
+}
+
+async function updateMaintenanceTask(id, payload, currentUser) {
+  const db = await getDb();
+  const taskId = parsePositiveId(id);
+  const task = normalizeMaintenanceTaskPayload(payload);
+
+  if (!taskId) {
+    return { ok: false, statusCode: 400, error: "Ungültige Wartungsart-ID." };
+  }
+
+  if (!task.name) {
+    return { ok: false, statusCode: 400, error: "Name der Wartungsart ist erforderlich." };
+  }
+
+  const existingRows = await db.query(`
+    SELECT id
+    FROM maintenance_tasks
+    WHERE name = ${quoteSql(task.name)} COLLATE NOCASE
+      AND id != ${taskId}
+    LIMIT 1;
+  `);
+
+  if (existingRows.length > 0) {
+    return { ok: false, statusCode: 409, error: "Diese Wartungsart existiert bereits." };
+  }
+
+  await db.exec(`
+    UPDATE maintenance_tasks
+    SET
+      name = ${quoteSql(task.name)},
+      description = ${quoteSql(task.description)},
+      due_after_hours = ${numberSql(task.dueAfterHours)},
+      is_active = 1,
+      updated_at = datetime('now')
+    WHERE id = ${taskId};
+  `);
+
+  return { ok: true, statusCode: 200, data: await getAppData(currentUser) };
+}
+
+async function deleteMaintenanceTask(id, currentUser) {
+  const db = await getDb();
+  const taskId = parsePositiveId(id);
+
+  if (!taskId) {
+    return { ok: false, statusCode: 400, error: "Ungültige Wartungsart-ID." };
+  }
+
+  await db.exec(`
+    UPDATE maintenance_tasks
+    SET is_active = 0, updated_at = datetime('now')
+    WHERE id = ${taskId};
+  `);
+
+  return { ok: true, statusCode: 200, data: await getAppData(currentUser) };
+}
+
+async function createPrinterMaintenanceRecord(id, payload, currentUser) {
+  const db = await getDb();
+  const printerId = parsePositiveId(id);
+  const record = normalizeMaintenanceRecordPayload(payload);
+
+  if (!printerId) {
+    return { ok: false, statusCode: 400, error: "Ungültige Drucker-ID." };
+  }
+
+  if (!record.taskId || !record.performedAt || record.performedAtHours === null) {
+    return { ok: false, statusCode: 400, error: "Wartungsart, Datum und Betriebsstunden sind erforderlich." };
+  }
+
+  const date = new Date(record.performedAt);
+  if (Number.isNaN(date.getTime())) {
+    return { ok: false, statusCode: 400, error: "Das Wartungsdatum ist ungültig." };
+  }
+
+  const [printer] = await db.query(`
+    SELECT id, operating_hours AS operatingHours
+    FROM printers
+    WHERE id = ${printerId}
+      AND is_active = 1
+    LIMIT 1;
+  `);
+
+  if (!printer) {
+    return { ok: false, statusCode: 404, error: "Drucker wurde nicht gefunden." };
+  }
+
+  const [task] = await db.query(`
+    SELECT id, name, due_after_hours AS dueAfterHours
+    FROM maintenance_tasks
+    WHERE id = ${record.taskId}
+      AND is_active = 1
+    LIMIT 1;
+  `);
+
+  if (!task) {
+    return { ok: false, statusCode: 404, error: "Wartungsart wurde nicht gefunden." };
+  }
+
+  await db.exec(`
+    BEGIN;
+    UPDATE printers
+    SET
+      operating_hours = MAX(operating_hours, ${numberSql(record.performedAtHours)}),
+      operating_seconds = MAX(operating_seconds, ${operatingSecondsSql(record.performedAtHours)}),
+      updated_at = datetime('now')
+    WHERE id = ${printerId};
+    INSERT INTO printer_maintenance_records (printer_id, task_id, task_name, performed_at, performed_at_hours, note)
+    VALUES (
+      ${printerId},
+      ${record.taskId},
+      ${quoteSql(task.name)},
+      ${quoteSql(record.performedAt)},
+      ${numberSql(record.performedAtHours)},
+      ${quoteSql(record.note)}
+    );
+    COMMIT;
+  `);
+
+  return { ok: true, statusCode: 201, data: await getAppData(currentUser) };
+}
+
 async function createPrinter(payload, currentUser) {
   const db = await getDb();
   const printer = normalizePrinterPayload(payload);
@@ -882,6 +1148,8 @@ async function createPrinter(payload, currentUser) {
       access_code,
       has_ams,
       location,
+      operating_hours,
+      operating_seconds,
       enable_file_cache_lookup,
       is_active
     )
@@ -893,6 +1161,8 @@ async function createPrinter(payload, currentUser) {
       ${quoteSql(printer.accessCode)},
       ${printer.hasAms},
       ${quoteSql(printer.location)},
+      ${numberSql(printer.operatingHours)},
+      ${operatingSecondsSql(printer.operatingHours)},
       ${printer.enableFileCacheLookup},
       ${printer.isActive}
     );
@@ -926,6 +1196,8 @@ async function updatePrinter(id, payload, currentUser) {
       access_code = ${quoteSql(printer.accessCode)},
       has_ams = ${printer.hasAms},
       location = ${quoteSql(printer.location)},
+      operating_hours = ${numberSql(printer.operatingHours)},
+      operating_seconds = ${operatingSecondsSql(printer.operatingHours)},
       enable_file_cache_lookup = ${printer.enableFileCacheLookup},
       is_active = ${printer.isActive},
       updated_at = datetime('now')
@@ -1128,6 +1400,13 @@ async function handleRequest(request, response) {
     return;
   }
 
+  const printerMaintenanceMatch = url.pathname.match(/^\/api\/printers\/(\d+)\/maintenance$/);
+  if (printerMaintenanceMatch && request.method === "POST") {
+    const result = await createPrinterMaintenanceRecord(printerMaintenanceMatch[1], await readJsonBody(request), currentUser);
+    sendJson(response, result.statusCode, result.ok ? result.data : { error: result.error });
+    return;
+  }
+
   const printerHistoryMatch = url.pathname.match(/^\/api\/printers\/(\d+)\/status-history$/);
   if (printerHistoryMatch && request.method === "GET") {
     const result = await getPrinterStatusHistory(printerHistoryMatch[1], url);
@@ -1231,6 +1510,38 @@ async function handleRequest(request, response) {
       return;
     }
     const result = await deleteUser(userDeleteMatch[1], currentUser);
+    sendJson(response, result.statusCode, result.ok ? result.data : { error: result.error });
+    return;
+  }
+
+  if (url.pathname === "/api/maintenance-tasks" && request.method === "POST") {
+    if (currentUser.role !== "admin") {
+      sendJson(response, 403, { error: "Nur Admins dürfen Einstellungen bearbeiten." });
+      return;
+    }
+    const result = await createMaintenanceTask(await readJsonBody(request), currentUser);
+    sendJson(response, result.statusCode, result.ok ? result.data : { error: result.error });
+    return;
+  }
+
+  const maintenanceTaskUpdateMatch = url.pathname.match(/^\/api\/maintenance-tasks\/(\d+)$/);
+  if (maintenanceTaskUpdateMatch && request.method === "PATCH") {
+    if (currentUser.role !== "admin") {
+      sendJson(response, 403, { error: "Nur Admins dürfen Einstellungen bearbeiten." });
+      return;
+    }
+    const result = await updateMaintenanceTask(maintenanceTaskUpdateMatch[1], await readJsonBody(request), currentUser);
+    sendJson(response, result.statusCode, result.ok ? result.data : { error: result.error });
+    return;
+  }
+
+  const maintenanceTaskDeleteMatch = url.pathname.match(/^\/api\/maintenance-tasks\/(\d+)$/);
+  if (maintenanceTaskDeleteMatch && request.method === "DELETE") {
+    if (currentUser.role !== "admin") {
+      sendJson(response, 403, { error: "Nur Admins dürfen Einstellungen bearbeiten." });
+      return;
+    }
+    const result = await deleteMaintenanceTask(maintenanceTaskDeleteMatch[1], currentUser);
     sendJson(response, result.statusCode, result.ok ? result.data : { error: result.error });
     return;
   }

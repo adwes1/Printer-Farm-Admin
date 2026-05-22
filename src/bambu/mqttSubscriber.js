@@ -125,15 +125,19 @@ export class BambuMqttSubscriber extends EventEmitter {
     this.buffer = Buffer.alloc(0);
     this.packetId = 1;
     this.pingTimer = null;
+    this.connectTimer = null;
   }
 
   connect() {
     this.socket = tls.connect({
       host: this.host,
       port: 8883,
-      rejectUnauthorized: false,
-      timeout: this.timeoutMs
+      rejectUnauthorized: false
     });
+    this.connectTimer = setTimeout(() => {
+      this.emit("error", new Error("MQTT Verbindungstimeout"));
+      this.close();
+    }, this.timeoutMs);
 
     this.socket.on("secureConnect", () => {
       this.socket.write(connectPacket({
@@ -143,16 +147,17 @@ export class BambuMqttSubscriber extends EventEmitter {
       }));
     });
     this.socket.on("data", (chunk) => this.handleData(chunk));
-    this.socket.on("timeout", () => this.emit("error", new Error("MQTT Verbindungstimeout")));
     this.socket.on("error", (error) => this.emit("error", error));
     this.socket.on("close", () => {
       this.stopPing();
+      this.stopConnectTimer();
       this.emit("close");
     });
   }
 
   close() {
     this.stopPing();
+    this.stopConnectTimer();
     if (this.socket) {
       this.socket.end();
       this.socket.destroy();
@@ -171,6 +176,7 @@ export class BambuMqttSubscriber extends EventEmitter {
 
   handlePacket(item) {
     if (item.type === 2) {
+      this.stopConnectTimer();
       const returnCode = item.payload[1];
       if (returnCode !== 0) {
         this.emit("error", new Error(`MQTT Auth/Connect fehlgeschlagen (${returnCode})`));
@@ -211,6 +217,13 @@ export class BambuMqttSubscriber extends EventEmitter {
     if (this.pingTimer) {
       clearInterval(this.pingTimer);
       this.pingTimer = null;
+    }
+  }
+
+  stopConnectTimer() {
+    if (this.connectTimer) {
+      clearTimeout(this.connectTimer);
+      this.connectTimer = null;
     }
   }
 }

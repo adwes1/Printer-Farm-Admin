@@ -1,5 +1,5 @@
 import { BambuMqttSubscriber } from "./mqttSubscriber.js";
-import { createOfflineStatus, mergeBambuStatus, normalizeBambuStatus } from "./normalizer.js";
+import { createConnectedStatus, createOfflineStatus, mergeBambuStatus, normalizeBambuStatus } from "./normalizer.js";
 
 const OFFLINE_AFTER_MS = 60000;
 const DEFAULT_STATUS_FLUSH_INTERVAL_MS = 5000;
@@ -123,6 +123,13 @@ export class BambuCollector {
     subscriber.on("connect", () => {
       console.log(`Bambu MQTT verbunden: ${printer.name} (${printer.ipAddress})`);
       this.saveEvent(printer.id, "mqtt_connected", "MQTT-Verbindung hergestellt", "info").catch(() => {});
+      this.saveStatus(printer.id, createConnectedStatus(printer))
+        .then(() => {
+          this.broadcast({ type: "printer-status", printerId: printer.id });
+        })
+        .catch((error) => {
+          console.warn(`Bambu MQTT Online-Status konnte fuer ${printer.name} nicht gespeichert werden: ${error.message}`);
+        });
       this.armOfflineTimer(connection);
     });
 

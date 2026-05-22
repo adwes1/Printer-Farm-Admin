@@ -42,6 +42,30 @@ function normalizeState(value) {
   return STATE_MAP[text.toUpperCase()] || text.toLowerCase() || "unknown";
 }
 
+function normalizeModel(value) {
+  return nullableString(value)?.toUpperCase() || "UNKNOWN";
+}
+
+function hasActivePrintSignal({ progressPercent, remainingMinutes, currentLayer, currentFile, subtaskName }) {
+  return (progressPercent > 0 && progressPercent < 100) ||
+    remainingMinutes > 0 ||
+    currentLayer > 0 ||
+    Boolean(currentFile || subtaskName);
+}
+
+function normalizeModelSpecificState(state, printer, signals) {
+  if (state !== "unknown") {
+    return state;
+  }
+  if (hasActivePrintSignal(signals)) {
+    return "running";
+  }
+  if (normalizeModel(printer.model) === "P1S") {
+    return "idle";
+  }
+  return state;
+}
+
 function jsonOrNull(value) {
   if (value === null || value === undefined) {
     return null;
@@ -63,10 +87,16 @@ export function normalizeBambuStatus(rawPayload, printer = {}) {
   const progressPercent = nullableInteger(print.mc_percent ?? print.progress_percent ?? print.percent);
   const remainingMinutes = nullableInteger(print.mc_remaining_time ?? print.remaining_minutes);
   const currentLayer = nullableInteger(print.layer_num ?? print.current_layer);
+  const currentFile = nullableString(print.gcode_file ?? print.file);
+  const subtaskName = nullableString(print.subtask_name);
 
-  if (state === "unknown" && (remainingMinutes > 0 || (progressPercent > 0 && progressPercent < 100) || currentLayer > 0)) {
-    state = "running";
-  }
+  state = normalizeModelSpecificState(state, printer, {
+    progressPercent,
+    remainingMinutes,
+    currentLayer,
+    currentFile,
+    subtaskName
+  });
 
   return {
     printerId: printer.id ?? null,
@@ -81,8 +111,8 @@ export function normalizeBambuStatus(rawPayload, printer = {}) {
     chamberTemp: nullableNumber(print.chamber_temper ?? print.chamber_temp ?? printInfo.temp ?? chamberControlInfo.temp),
     currentLayer,
     totalLayers: nullableInteger(print.total_layer_num ?? print.total_layers),
-    currentFile: nullableString(print.gcode_file ?? print.file),
-    subtaskName: nullableString(print.subtask_name),
+    currentFile,
+    subtaskName,
     amsStatusJson: jsonOrNull(print.ams),
     hmsErrorsJson: jsonOrNull(print.hms),
     rawJson: jsonOrNull(payload)
@@ -91,6 +121,9 @@ export function normalizeBambuStatus(rawPayload, printer = {}) {
 
 export function mergeBambuStatus(previousStatus, nextStatus) {
   if (!previousStatus) {
+    return nextStatus;
+  }
+  if (previousStatus.online === false && nextStatus.online === true) {
     return nextStatus;
   }
 
@@ -126,6 +159,28 @@ export function createOfflineStatus(printer, state = "offline") {
   return {
     printerId: printer.id,
     online: false,
+    state,
+    progressPercent: null,
+    remainingMinutes: null,
+    nozzleTemp: null,
+    nozzleTargetTemp: null,
+    bedTemp: null,
+    bedTargetTemp: null,
+    chamberTemp: null,
+    currentLayer: null,
+    totalLayers: null,
+    currentFile: null,
+    subtaskName: null,
+    amsStatusJson: null,
+    hmsErrorsJson: null,
+    rawJson: null
+  };
+}
+
+export function createConnectedStatus(printer, state = "unknown") {
+  return {
+    printerId: printer.id,
+    online: true,
     state,
     progressPercent: null,
     remainingMinutes: null,
