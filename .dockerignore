@@ -1,7 +1,14 @@
 .git
+.gitignore
 data
 node_modules
 npm-debug.log
 config.php
 Dockerfile
 docker-compose.yml
+portainer-stack.yml
+.env
+.env.*
+README.md
+test
+.DS_Store

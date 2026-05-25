@@ -1,0 +1,28 @@
+services:
+  printer-farm-admin:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: printer-farm-admin:local
+    container_name: printer-farm-admin
+    restart: unless-stopped
+    environment:
+      HOST: 0.0.0.0
+      PORT: 3000
+      DB_PATH: /data/printer-farm.sqlite
+      INSTALL_FILE: /data/install.json
+      ADMIN_NAME: ${ADMIN_NAME:-admin}
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.local}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in Portainer before starting}
+    ports:
+      - "${PFA_HTTP_PORT:-3000}:3000"
+    volumes:
+      - type: bind
+        source: ${PFA_DATA_DIR:-/volume1/docker/printer-farm-admin/data}
+        target: /data
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/health >/dev/null || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
