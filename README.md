@@ -40,7 +40,7 @@ docker compose down
 
 ## Start auf Synology mit Portainer
 
-Fuer Portainer liegt eine eigene Stack-Datei unter `portainer-stack.yml` bei. Sie ist fuer Synology vorbereitet und speichert Daten standardmaessig unter:
+Fuer Portainer liegt eine eigene Stack-Datei unter `portainer-stack.yml` bei. Sie ist fuer Synology vorbereitet, nutzt `node:24-alpine`, laedt die App beim Containerstart aus dem GitHub-Branch `main` und speichert Daten standardmaessig unter:
 
 ```text
 /volume1/docker/printer-farm-admin/data
@@ -55,15 +55,15 @@ mkdir -p /volume1/docker/printer-farm-admin/data
 In Portainer:
 
 1. `Stacks` > `Add stack` oeffnen.
-2. Als Quelle dieses Repository bzw. den Inhalt von `portainer-stack.yml` verwenden.
-3. Unter `Environment variables` mindestens `ADMIN_PASSWORD` setzen.
-4. Optional `PFA_HTTP_PORT` aendern, falls Port `3000` auf der Synology schon belegt ist.
-5. Optional `PFA_DATA_DIR` anpassen, falls die Daten auf einem anderen Volume liegen sollen.
+2. Den Inhalt von `portainer-stack.yml` einfuegen.
+3. Optional `ADMIN_PASSWORD` im YAML aendern.
+4. Optional den Host-Port `3010:3000` aendern, falls Port `3010` auf der Synology schon belegt ist.
+5. Optional den Volume-Pfad anpassen, falls die Daten auf einem anderen Volume liegen sollen.
 6. Stack deployen.
 
-Danach ist die App unter `http://<synology-ip>:3000` erreichbar, oder unter dem gesetzten `PFA_HTTP_PORT`.
+Danach ist die App unter `http://<synology-ip>:3010` erreichbar.
 
-Beispielwerte stehen in `.env.portainer.example`.
+Die Datei `.env.portainer.example` enthaelt Beispielwerte, falls die festen YAML-Werte spaeter durch Variablen ersetzt werden sollen.
 
 ## Startup-Prozess
 

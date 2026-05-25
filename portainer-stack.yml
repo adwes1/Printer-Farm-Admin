@@ -1,28 +1,40 @@
 services:
   printer-farm-admin:
-    build:
-      context: .
-      dockerfile: Dockerfile
-    image: printer-farm-admin:local
+    image: node:24-alpine
     container_name: printer-farm-admin
     restart: unless-stopped
+
+    working_dir: /app
+
     environment:
+      TZ: Europe/Berlin
       HOST: 0.0.0.0
       PORT: 3000
       DB_PATH: /data/printer-farm.sqlite
       INSTALL_FILE: /data/install.json
-      ADMIN_NAME: ${ADMIN_NAME:-admin}
-      ADMIN_EMAIL: ${ADMIN_EMAIL:-admin@example.local}
-      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?Set ADMIN_PASSWORD in Portainer before starting}
+      ADMIN_NAME: admin
+      ADMIN_EMAIL: admin@printer-farm.local
+      ADMIN_PASSWORD: admin123456
+
     ports:
-      - "${PFA_HTTP_PORT:-3000}:3000"
+      - "3010:3000"
+
     volumes:
-      - type: bind
-        source: ${PFA_DATA_DIR:-/volume1/docker/printer-farm-admin/data}
-        target: /data
+      - /volume1/docker/printer-farm-admin/data:/data
+
+    command: >
+      sh -c "
+      apk add --no-cache sqlite curl unzip ca-certificates &&
+      rm -rf /tmp/printer-farm-admin /tmp/printer-farm-admin.zip /app/* &&
+      curl -L https://github.com/adwes1/Printer-Farm-Admin/archive/refs/heads/main.zip -o /tmp/printer-farm-admin.zip &&
+      unzip -q /tmp/printer-farm-admin.zip -d /tmp/printer-farm-admin &&
+      cp -a /tmp/printer-farm-admin/Printer-Farm-Admin-main/. /app/ &&
+      node src/server.js
+      "
+
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://127.0.0.1:3000/health >/dev/null || exit 1"]
       interval: 30s
       timeout: 5s
       retries: 5
-      start_period: 20s
+      start_period: 60s
