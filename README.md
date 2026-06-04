@@ -38,6 +38,20 @@ docker compose restart
 docker compose down
 ```
 
+## Updates und Datensicherheit
+
+Die App-Daten liegen nicht im Docker-Image, sondern dauerhaft im lokalen Ordner `data/`. Ein normales Update per
+
+```bash
+docker compose up -d --build
+```
+
+ersetzt nur den App-Container. Angelegte Materialien, Drucker, Lagerplaetze, Wartungen, User und Einstellungen bleiben in `data/printer-farm.sqlite` erhalten.
+
+Beim Start werden nur noch fehlende Datenbank-Migrationen angewendet. Wenn eine bestehende Datenbank vor einem Update neue Migrationen bekommt, legt die App vorher automatisch ein Backup unter `data/backups/` an.
+
+Wichtig: Den Ordner `data/` nicht loeschen und bei Portainer/Synology den Volume-Pfad beibehalten. `docker compose down` ist okay; `docker compose down -v` oder das Entfernen des gemounteten Datenordners wuerde die gespeicherten Daten entfernen.
+
 ## Start auf Synology mit Portainer
 
 Fuer Portainer liegt eine eigene Stack-Datei unter `portainer-stack.yml` bei. Sie ist fuer Synology vorbereitet, nutzt `node:24-alpine`, laedt die App beim Containerstart aus dem GitHub-Branch `main` und speichert Daten standardmaessig unter:
@@ -72,8 +86,10 @@ Beim Start fuehrt die App automatisch den Bootstrap aus:
 1. Prueft, ob eine Installation unter `data/install.json` existiert.
 2. Prueft die Verbindung zur SQLite-Datenbank.
 3. Legt die Migrationstabelle an, falls sie fehlt.
-4. Fuehrt noch nicht angewendete SQL-Migrationen aus `src/db/migrations` aus.
-5. Schreibt oder aktualisiert die Installationsmetadaten.
+4. Legt bei einer bestehenden Datenbank und neuen Migrationen ein Backup unter `data/backups/` an.
+5. Fuehrt noch nicht angewendete SQL-Migrationen aus `src/db/migrations` aus.
+6. Legt den initialen Admin nur an, wenn noch kein Admin existiert.
+7. Schreibt oder aktualisiert die Installationsmetadaten.
 
 Dieser Ablauf ist auch die Basis fuer spaetere Updates: neue Migrationen werden beim naechsten Start erkannt und angewendet.
 

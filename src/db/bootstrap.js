@@ -1,4 +1,4 @@
-import { mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
+import { copyFile, mkdir, readFile, readdir, stat, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { hashPassword } from "../auth/passwords.js";
 import { config } from "../config.js";
@@ -67,7 +67,31 @@ async function writeInstallState(state) {
   await writeFile(config.installFile, `${JSON.stringify(state, null, 2)}\n`, "utf8");
 }
 
+function backupTimestamp() {
+  return new Date().toISOString().replaceAll(":", "-").replaceAll(".", "-");
+}
+
+async function createMigrationBackup(db) {
+  await db.exec("PRAGMA wal_checkpoint(FULL);");
+
+  const backupDir = path.join(path.dirname(config.dbPath), "backups");
+  await mkdir(backupDir, { recursive: true });
+
+  const backupPath = path.join(backupDir, `printer-farm.before-migrations-${backupTimestamp()}.sqlite`);
+  await copyFile(config.dbPath, backupPath);
+  return backupPath;
+}
+
 async function ensureInitialAdmin(db) {
+  const existingRows = await db.query("SELECT id, email FROM users WHERE role = 'admin' ORDER BY id LIMIT 1;");
+
+  if (existingRows.length > 0) {
+    return {
+      created: false,
+      email: existingRows[0].email
+    };
+  }
+
   const admin = config.initialAdmin;
   const name = String(admin.name || "").trim();
   const email = String(admin.email || "").trim().toLowerCase();
@@ -78,39 +102,31 @@ async function ensureInitialAdmin(db) {
   }
 
   const passwordHash = hashPassword(password);
-  const existingRows = await db.query("SELECT id, email FROM users WHERE role = 'admin' ORDER BY id LIMIT 1;");
-
-  if (existingRows.length > 0) {
-    await db.exec(`
-      UPDATE users
-      SET
-        name = ${quoteSql(name)},
-        email = ${quoteSql(email)},
-        password_hash = ${quoteSql(passwordHash)},
-        role = 'admin',
-        updated_at = datetime('now')
-      WHERE id = ${Number.parseInt(existingRows[0].id, 10)};
-    `);
-    return;
-  }
 
   await db.exec(`
     INSERT INTO users (name, email, role, password_hash)
     VALUES (${quoteSql(name)}, ${quoteSql(email)}, 'admin', ${quoteSql(passwordHash)});
   `);
+
+  return {
+    created: true,
+    email
+  };
 }
 
 export async function bootstrapApp() {
   const startedAt = new Date().toISOString();
   const installState = await readInstallState();
   const db = new SqliteCli(config.dbPath);
+  const databaseExistedBeforeStart = await exists(config.dbPath);
 
   const result = {
     startedAt,
     installed: installState.installed,
     database: {
       path: config.dbPath,
-      connected: false
+      connected: false,
+      backupBeforeMigrations: null
     },
     schema: {
       checked: false,
@@ -132,15 +148,20 @@ export async function bootstrapApp() {
   result.schema.checked = true;
   result.schema.pendingBeforeStart = pending.map((migration) => migration.id);
 
+  if (databaseExistedBeforeStart && pending.length > 0) {
+    result.database.backupBeforeMigrations = await createMigrationBackup(db);
+  }
+
   for (const migration of pending) {
     await applyMigration(db, migration);
     result.schema.appliedMigrations.push(migration.id);
   }
 
-  await ensureInitialAdmin(db);
+  const initialAdmin = await ensureInitialAdmin(db);
   result.initialAdmin = {
     name: config.initialAdmin.name,
-    email: config.initialAdmin.email
+    email: initialAdmin.email,
+    created: initialAdmin.created
   };
 
   result.schema.upToDate = true;

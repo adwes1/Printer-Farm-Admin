@@ -37,6 +37,7 @@ const elements = {
   printerCards: document.querySelector("#printer-cards"),
   materialLocation: document.querySelector("#material-location"),
   materialEditLocation: document.querySelector("#material-edit-location"),
+  materialSearch: document.querySelector("#material-search"),
   materialCount: document.querySelector("#material-count"),
   materialCards: document.querySelector("#material-cards"),
   quantityTitle: document.querySelector("#quantity-title"),
@@ -226,6 +227,68 @@ function materialLabel(material) {
 
 function materialById(id) {
   return state.data.materials.find((material) => String(material.id) === String(id));
+}
+
+function uniqueMaterialSuggestions(values) {
+  return [...new Set(values.map((value) => String(value || "").trim()).filter(Boolean))]
+    .sort((a, b) => a.localeCompare(b, "de", { sensitivity: "base" }));
+}
+
+function materialSuggestionValues(field) {
+  const suggestionSources = {
+    type: state.data.materials.map((material) => material.type),
+    color: state.data.materials.map((material) => material.colorName),
+    manufacturer: state.data.materials.map((material) => materialManufacturer(material))
+  };
+
+  return uniqueMaterialSuggestions(suggestionSources[field] || []);
+}
+
+function closeMaterialSuggestMenus() {
+  document.querySelectorAll("[data-material-suggest-menu]").forEach((menu) => {
+    menu.classList.remove("active");
+    menu.innerHTML = "";
+  });
+}
+
+function renderMaterialSuggestMenu(input) {
+  const field = input.dataset.materialSuggestInput;
+  const menu = input.parentElement?.querySelector(`[data-material-suggest-menu="${field}"]`);
+  if (!menu) {
+    return;
+  }
+
+  const query = input.value.trim().toLocaleLowerCase("de-DE");
+  const suggestions = materialSuggestionValues(field)
+    .filter((value) => !query || value.toLocaleLowerCase("de-DE").includes(query))
+    .slice(0, 8);
+
+  if (!suggestions.length) {
+    menu.classList.remove("active");
+    menu.innerHTML = "";
+    return;
+  }
+
+  menu.innerHTML = suggestions
+    .map((value) => `<button type="button" data-material-suggest-value="${escapeHtml(value)}">${escapeHtml(value)}</button>`)
+    .join("");
+  menu.classList.add("active");
+}
+
+function materialMatchesSearch(material, query) {
+  if (!query) {
+    return true;
+  }
+
+  const searchableText = [
+    materialLabel(material),
+    materialManufacturer(material),
+    material.colorName,
+    storageLabel(material),
+    formatGrams(material.quantityGrams)
+  ].join(" ").toLocaleLowerCase("de-DE");
+
+  return searchableText.includes(query.toLocaleLowerCase("de-DE"));
 }
 
 function maintenanceRecordsForPrinter(printerId) {
@@ -509,8 +572,13 @@ function renderMaterials() {
   elements.materialLocation.innerHTML = storageOptions();
   elements.materialEditLocation.innerHTML = storageOptions();
 
-  elements.materialCount.textContent = `${state.data.materials.length} Eintrag/Einträge`;
-  elements.materialCards.innerHTML = state.data.materials
+  const searchQuery = elements.materialSearch?.value.trim() || "";
+  const visibleMaterials = state.data.materials.filter((material) => materialMatchesSearch(material, searchQuery));
+
+  elements.materialCount.textContent = searchQuery
+    ? `${visibleMaterials.length} von ${state.data.materials.length} Eintrag/Einträge`
+    : `${state.data.materials.length} Eintrag/Einträge`;
+  elements.materialCards.innerHTML = visibleMaterials
     .map((material) => {
       const trafficLight = materialTrafficLight(material);
       return `
@@ -543,7 +611,11 @@ function renderMaterials() {
         </tr>
       `;
     })
-    .join("");
+    .join("") || `
+      <tr>
+        <td colspan="7" class="empty-row">Keine Materialien gefunden.</td>
+      </tr>
+    `;
 }
 
 function openEditMaterialModal(id) {
@@ -1537,6 +1609,47 @@ document.querySelector("#material-edit-form").addEventListener("submit", async (
     await updateMaterial(event.currentTarget);
   } catch (error) {
     showToast(error.message, "error");
+  }
+});
+
+elements.materialSearch?.addEventListener("input", () => {
+  renderMaterials();
+});
+
+document.addEventListener("input", (event) => {
+  const input = event.target.closest("[data-material-suggest-input]");
+  if (!input) {
+    return;
+  }
+
+  renderMaterialSuggestMenu(input);
+});
+
+document.addEventListener("focusin", (event) => {
+  const input = event.target.closest("[data-material-suggest-input]");
+  if (!input) {
+    return;
+  }
+
+  renderMaterialSuggestMenu(input);
+});
+
+document.addEventListener("mousedown", (event) => {
+  const suggestButton = event.target.closest("[data-material-suggest-value]");
+  if (suggestButton) {
+    event.preventDefault();
+    const field = suggestButton.closest(".suggest-field");
+    const input = field?.querySelector("[data-material-suggest-input]");
+    if (input) {
+      input.value = suggestButton.dataset.materialSuggestValue;
+      input.focus();
+    }
+    closeMaterialSuggestMenus();
+    return;
+  }
+
+  if (!event.target.closest(".suggest-field")) {
+    closeMaterialSuggestMenus();
   }
 });
 

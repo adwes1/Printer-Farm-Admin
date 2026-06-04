@@ -69,8 +69,12 @@
 
       <section class="view" id="materials-view">
         <section class="details">
-          <div class="details-heading">
-            <h2>Materialbestand</h2>
+          <div class="details-heading material-heading">
+            <div class="list-toolbar">
+              <label class="search-field">
+                <input id="material-search" type="search" aria-label="Material suchen" placeholder="Material, Hersteller, Farbe oder Lagerplatz">
+              </label>
+            </div>
             <div class="heading-actions">
               <span id="material-count"></span>
               <button type="button" data-modal-open="material-modal">Material anlegen</button>
@@ -263,17 +267,20 @@
           <button class="icon-button" type="button" data-modal-close aria-label="Schließen">×</button>
         </div>
         <div class="form-grid">
-          <label>
+          <label class="suggest-field">
             Typ
-            <input name="type" required placeholder="PLA, PETG, ASA">
+            <input name="type" data-material-suggest-input="type" required placeholder="PLA, PETG, ASA" autocomplete="off">
+            <div class="suggest-menu" data-material-suggest-menu="type"></div>
           </label>
-          <label>
+          <label class="suggest-field">
             Farbe
-            <input name="colorName" required placeholder="Mattschwarz">
+            <input name="colorName" data-material-suggest-input="color" required placeholder="Mattschwarz" autocomplete="off">
+            <div class="suggest-menu" data-material-suggest-menu="color"></div>
           </label>
-          <label>
+          <label class="suggest-field">
             Hersteller
-            <input name="manufacturer" required placeholder="Bambu Lab">
+            <input name="manufacturer" data-material-suggest-input="manufacturer" required placeholder="Bambu Lab" autocomplete="off">
+            <div class="suggest-menu" data-material-suggest-menu="manufacturer"></div>
           </label>
           <label>
             Farbwert
@@ -306,17 +313,20 @@
           <button class="icon-button" type="button" data-modal-close aria-label="Schließen">×</button>
         </div>
         <div class="form-grid">
-          <label>
+          <label class="suggest-field">
             Typ
-            <input name="type" required placeholder="PLA, PETG, ASA">
+            <input name="type" data-material-suggest-input="type" required placeholder="PLA, PETG, ASA" autocomplete="off">
+            <div class="suggest-menu" data-material-suggest-menu="type"></div>
           </label>
-          <label>
+          <label class="suggest-field">
             Farbe
-            <input name="colorName" required placeholder="Mattschwarz">
+            <input name="colorName" data-material-suggest-input="color" required placeholder="Mattschwarz" autocomplete="off">
+            <div class="suggest-menu" data-material-suggest-menu="color"></div>
           </label>
-          <label>
+          <label class="suggest-field">
             Hersteller
-            <input name="manufacturer" required placeholder="Bambu Lab">
+            <input name="manufacturer" data-material-suggest-input="manufacturer" required placeholder="Bambu Lab" autocomplete="off">
+            <div class="suggest-menu" data-material-suggest-menu="manufacturer"></div>
           </label>
           <label>
             Farbwert
