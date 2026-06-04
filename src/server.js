@@ -61,6 +61,7 @@ function normalizeMaterialPayload(payload) {
   const requestedColor = String(payload.colorHex || "#444444").trim();
   const colorHex = /^#[0-9a-f]{6}$/i.test(requestedColor) ? requestedColor : "#444444";
   const storageLocationId = payload.storageLocationId ? numberSql(payload.storageLocationId) : "NULL";
+  const pricePerKgNet = Number.parseFloat(String(payload.pricePerKgNet || "").replace(",", "."));
 
   return {
     manufacturer,
@@ -68,6 +69,7 @@ function normalizeMaterialPayload(payload) {
     colorName,
     colorHex,
     quantityGrams: numberSql(payload.quantityGrams),
+    pricePerKgNet: Number.isFinite(pricePerKgNet) ? Math.max(0, pricePerKgNet) : 0,
     storageLocationId
   };
 }
@@ -611,6 +613,7 @@ async function getAppData(currentUser = null) {
         materials.color_name AS colorName,
         materials.color_hex AS colorHex,
         materials.quantity_grams AS quantityGrams,
+        materials.price_per_kg_net AS pricePerKgNet,
         materials.storage_location_id AS storageLocationId,
         storage_locations.room,
         storage_locations.shelf,
@@ -709,13 +712,14 @@ async function createMaterial(payload, currentUser) {
   }
 
   await db.exec(`
-    INSERT INTO materials (name, type, color_name, color_hex, quantity_grams, storage_location_id)
+    INSERT INTO materials (name, type, color_name, color_hex, quantity_grams, price_per_kg_net, storage_location_id)
     VALUES (
       ${quoteSql(material.manufacturer)},
       ${quoteSql(material.type)},
       ${quoteSql(material.colorName)},
       ${quoteSql(material.colorHex)},
       ${material.quantityGrams},
+      ${material.pricePerKgNet},
       ${material.storageLocationId}
     );
   `);
@@ -744,6 +748,7 @@ async function updateMaterial(id, payload, currentUser) {
       color_name = ${quoteSql(material.colorName)},
       color_hex = ${quoteSql(material.colorHex)},
       quantity_grams = ${material.quantityGrams},
+      price_per_kg_net = ${material.pricePerKgNet},
       storage_location_id = ${material.storageLocationId},
       updated_at = datetime('now')
     WHERE id = ${materialId};

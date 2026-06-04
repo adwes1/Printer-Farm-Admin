@@ -38,6 +38,7 @@ const elements = {
   materialLocation: document.querySelector("#material-location"),
   materialEditLocation: document.querySelector("#material-edit-location"),
   materialSearch: document.querySelector("#material-search"),
+  inventoryValue: document.querySelector("#inventory-value"),
   materialCount: document.querySelector("#material-count"),
   materialCards: document.querySelector("#material-cards"),
   quantityTitle: document.querySelector("#quantity-title"),
@@ -82,6 +83,15 @@ function formatGrams(value) {
   return `${grams.toLocaleString("de-DE")} g`;
 }
 
+function formatEuroNet(value) {
+  const amount = Number(value || 0);
+  return `${amount.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € netto`;
+}
+
+function materialInventoryValue(material) {
+  return (Number(material.quantityGrams || 0) / 1000) * Number(material.pricePerKgNet || 0);
+}
+
 function escapeHtml(value) {
   return String(value ?? "")
     .replaceAll("&", "&amp;")
@@ -92,7 +102,7 @@ function escapeHtml(value) {
 }
 
 function storageLabel(item) {
-  if (!item) {
+  if (!item || ("storageLocationId" in item && !item.storageLocationId) || !item.room || !item.shelf || !item.box) {
     return "Kein Lagerplatz";
   }
   return `${item.room} / ${item.shelf} / ${item.box}`;
@@ -285,7 +295,8 @@ function materialMatchesSearch(material, query) {
     materialManufacturer(material),
     material.colorName,
     storageLabel(material),
-    formatGrams(material.quantityGrams)
+    formatGrams(material.quantityGrams),
+    formatEuroNet(material.pricePerKgNet)
   ].join(" ").toLocaleLowerCase("de-DE");
 
   return searchableText.includes(query.toLocaleLowerCase("de-DE"));
@@ -576,8 +587,11 @@ function renderMaterials() {
   const visibleMaterials = state.data.materials.filter((material) => materialMatchesSearch(material, searchQuery));
 
   elements.materialCount.textContent = searchQuery
-    ? `${visibleMaterials.length} von ${state.data.materials.length} Eintrag/Einträge`
-    : `${state.data.materials.length} Eintrag/Einträge`;
+    ? `${visibleMaterials.length} von ${state.data.materials.length} Positionen`
+    : `${state.data.materials.length} Positionen`;
+  elements.inventoryValue.textContent = `Lagerwert ${formatEuroNet(
+    visibleMaterials.reduce((sum, material) => sum + materialInventoryValue(material), 0)
+  )}`;
   elements.materialCards.innerHTML = visibleMaterials
     .map((material) => {
       const trafficLight = materialTrafficLight(material);
@@ -601,6 +615,7 @@ function renderMaterials() {
               <button class="compact-button quantity-button" type="button" data-quantity-mode="plus" data-quantity-material="${material.id}" aria-label="Bestand erhöhen">+</button>
             </div>
           </td>
+          <td>${formatEuroNet(material.pricePerKgNet)}</td>
           <td>${escapeHtml(storageLabel(material))}</td>
           <td>
             <div class="row-actions">
@@ -613,7 +628,7 @@ function renderMaterials() {
     })
     .join("") || `
       <tr>
-        <td colspan="7" class="empty-row">Keine Materialien gefunden.</td>
+        <td colspan="8" class="empty-row">Keine Materialien gefunden.</td>
       </tr>
     `;
 }
@@ -632,6 +647,10 @@ function openEditMaterialModal(id) {
   form.elements.manufacturer.value = materialManufacturer(material);
   form.elements.colorHex.value = material.colorHex;
   form.elements.quantityGrams.value = material.quantityGrams;
+  form.elements.pricePerKgNet.value = Number(material.pricePerKgNet || 0).toLocaleString("de-DE", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
   elements.materialEditLocation.innerHTML = storageOptions(material.storageLocationId || "");
   openModal("material-edit-modal");
 }

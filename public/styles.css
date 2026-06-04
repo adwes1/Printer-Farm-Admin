@@ -285,7 +285,9 @@ label {
 
 .list-toolbar {
   display: flex;
+  align-items: center;
   flex: 1;
+  gap: 12px;
   margin: 0;
 }
 
@@ -295,6 +297,12 @@ label {
 
 .search-field input {
   min-height: 38px;
+}
+
+.inventory-value {
+  color: var(--muted);
+  font-weight: 800;
+  white-space: nowrap;
 }
 
 .secondary-button {
