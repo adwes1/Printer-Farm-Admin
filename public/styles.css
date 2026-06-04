@@ -336,6 +336,34 @@ td {
   vertical-align: middle;
 }
 
+.table-sort-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  color: var(--cyan);
+  font: inherit;
+  text-align: left;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  cursor: pointer;
+}
+
+.table-sort-button:hover,
+.table-sort-button.active {
+  color: var(--text);
+}
+
+.sort-indicator {
+  min-width: 12px;
+  color: var(--muted);
+  font-size: 0.78em;
+}
+
 td:last-child {
   width: 1%;
   white-space: nowrap;

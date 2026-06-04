@@ -18,6 +18,10 @@ const state = {
   },
   view: "overview",
   settingsTab: "users",
+  materialSort: {
+    key: "material",
+    direction: "asc"
+  },
   role: "user",
   currentUser: null
 };
@@ -93,7 +97,7 @@ const I18N = {
     "table.color": "Farbe",
     "table.traffic": "Ampel",
     "table.quantity": "Menge",
-    "table.priceKgNet": "Preis/kg netto",
+    "table.priceKgNet": "€/kg",
     "table.storage": "Lagerplatz",
     "table.action": "Aktion",
     "table.name": "Name",
@@ -123,6 +127,7 @@ const I18N = {
     "action.test": "Testen",
     "action.increaseStock": "Bestand erhöhen",
     "action.decreaseStock": "Bestand reduzieren",
+    "action.sortBy": "Sortieren nach",
     "action.saveTraffic": "Ampel speichern",
     "action.saveMonitoring": "Monitoring speichern",
     "action.saveMaintenance": "Wartung speichern",
@@ -275,7 +280,7 @@ const I18N = {
     "table.color": "Color",
     "table.traffic": "Traffic",
     "table.quantity": "Quantity",
-    "table.priceKgNet": "Price/kg net",
+    "table.priceKgNet": "€/kg",
     "table.storage": "Storage",
     "table.action": "Action",
     "table.name": "Name",
@@ -305,6 +310,7 @@ const I18N = {
     "action.test": "Test",
     "action.increaseStock": "Increase Stock",
     "action.decreaseStock": "Decrease Stock",
+    "action.sortBy": "Sort by",
     "action.saveTraffic": "Save Traffic Light",
     "action.saveMonitoring": "Save Monitoring",
     "action.saveMaintenance": "Save Maintenance",
@@ -505,9 +511,32 @@ const STATIC_ATTRS = [
 ];
 
 function translateTableHeaders() {
+  const materialHeaderKeys = ["table.material", "table.manufacturer", "table.color", "table.traffic", "table.quantity", "table.priceKgNet", "table.storage", "table.action"];
+  const materialSortKeys = ["material", "manufacturer", "color", "traffic", "quantity", "price", "storage", null];
+
+  document.querySelectorAll("#materials-view thead th").forEach((element, index) => {
+    const label = t(materialHeaderKeys[index]);
+    const sortKey = materialSortKeys[index];
+    if (!sortKey) {
+      element.textContent = label;
+      element.removeAttribute("aria-sort");
+      return;
+    }
+
+    const isActive = state.materialSort.key === sortKey;
+    const direction = isActive ? state.materialSort.direction : "none";
+    const arrow = isActive ? (state.materialSort.direction === "asc" ? "▲" : "▼") : "";
+    element.setAttribute("aria-sort", direction === "none" ? "none" : (direction === "asc" ? "ascending" : "descending"));
+    element.innerHTML = `
+      <button class="table-sort-button ${isActive ? "active" : ""}" type="button" data-material-sort="${sortKey}" aria-label="${escapeHtml(`${t("action.sortBy")} ${label}`)}">
+        <span>${escapeHtml(label)}</span>
+        <span class="sort-indicator" aria-hidden="true">${arrow}</span>
+      </button>
+    `;
+  });
+
   const headerGroups = [
     ["#overview-view thead th", ["table.material", "table.manufacturer", "table.color", "table.traffic", "table.quantity", "table.storage"]],
-    ["#materials-view thead th", ["table.material", "table.manufacturer", "table.color", "table.traffic", "table.quantity", "table.priceKgNet", "table.storage", "table.action"]],
     ["[data-settings-panel='users'] thead th", ["table.name", "table.email", "table.rights", "table.action"]],
     ["[data-settings-panel='storage'] thead th", ["table.room", "table.shelf", "table.box", "table.note", "table.material", "table.action"]],
     ["[data-settings-panel='maintenance'] thead th", ["settings.maintenance", "table.interval", "table.note", "table.status", "table.action"]]
@@ -663,7 +692,7 @@ function formatGrams(value) {
 
 function formatEuroNet(value) {
   const amount = Number(value || 0);
-  return `${amount.toLocaleString(locale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € ${t("misc.net")}`;
+  return `${amount.toLocaleString(locale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })} €`;
 }
 
 function materialInventoryValue(material) {
@@ -878,6 +907,50 @@ function materialMatchesSearch(material, query) {
   ].join(" ").toLocaleLowerCase("de-DE");
 
   return searchableText.includes(query.toLocaleLowerCase("de-DE"));
+}
+
+function materialSortValue(material, key) {
+  switch (key) {
+    case "manufacturer":
+      return materialManufacturer(material);
+    case "color":
+      return material.colorName || "";
+    case "traffic":
+      return { red: 0, orange: 1, green: 2 }[materialTrafficLight(material).tone] ?? 3;
+    case "quantity":
+      return Number(material.quantityGrams || 0);
+    case "price":
+      return Number(material.pricePerKgNet || 0);
+    case "storage":
+      return storageLabel(material);
+    case "material":
+    default:
+      return materialLabel(material);
+  }
+}
+
+function sortMaterials(materials) {
+  const collator = new Intl.Collator(locale(), { numeric: true, sensitivity: "base" });
+  const directionFactor = state.materialSort.direction === "desc" ? -1 : 1;
+  const key = state.materialSort.key || "material";
+
+  return [...materials].sort((left, right) => {
+    const leftValue = materialSortValue(left, key);
+    const rightValue = materialSortValue(right, key);
+    let result;
+
+    if (typeof leftValue === "number" && typeof rightValue === "number") {
+      result = leftValue - rightValue;
+    } else {
+      result = collator.compare(String(leftValue || ""), String(rightValue || ""));
+    }
+
+    if (result === 0) {
+      result = collator.compare(materialLabel(left), materialLabel(right));
+    }
+
+    return result * directionFactor;
+  });
 }
 
 function maintenanceRecordsForPrinter(printerId) {
@@ -1163,7 +1236,9 @@ function renderMaterials() {
   elements.materialEditLocation.innerHTML = storageOptions();
 
   const searchQuery = elements.materialSearch?.value.trim() || "";
-  const visibleMaterials = state.data.materials.filter((material) => materialMatchesSearch(material, searchQuery));
+  const visibleMaterials = sortMaterials(
+    state.data.materials.filter((material) => materialMatchesSearch(material, searchQuery))
+  );
 
   elements.materialCount.textContent = searchQuery
     ? `${visibleMaterials.length} ${language() === "en" ? "of" : "von"} ${state.data.materials.length} ${t("summary.positions")}`
@@ -2058,6 +2133,22 @@ document.addEventListener("click", (event) => {
   if (closeButton) {
     closeModalFromElement(closeButton);
   }
+});
+
+document.addEventListener("click", (event) => {
+  const sortButton = event.target.closest("[data-material-sort]");
+  if (!sortButton) {
+    return;
+  }
+
+  const key = sortButton.dataset.materialSort;
+  const sameColumn = state.materialSort.key === key;
+  state.materialSort = {
+    key,
+    direction: sameColumn && state.materialSort.direction === "asc" ? "desc" : "asc"
+  };
+  renderMaterials();
+  translateTableHeaders();
 });
 
 elements.loginForm.addEventListener("submit", async (event) => {
