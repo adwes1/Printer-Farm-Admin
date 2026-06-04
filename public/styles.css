@@ -1177,6 +1177,8 @@ td span,
 
 .app-footer {
   display: flex;
+  align-items: center;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: 16px;
   margin-top: 32px;
@@ -1185,6 +1187,10 @@ td span,
   color: var(--muted);
   font-size: 0.82rem;
   font-weight: 700;
+}
+
+.app-footer span:nth-child(2) {
+  text-align: center;
 }
 
 @media (max-width: 980px) {

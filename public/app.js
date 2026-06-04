@@ -13,7 +13,8 @@ const state = {
     },
     printerMonitoring: {
       statusFlushIntervalMs: 5000
-    }
+    },
+    language: window.localStorage.getItem("pfa_language") || "de"
   },
   view: "overview",
   settingsTab: "users",
@@ -58,8 +59,585 @@ const elements = {
   trafficLightSummary: document.querySelector("#traffic-light-summary"),
   trafficLightForm: document.querySelector("#traffic-light-form"),
   printerMonitoringSummary: document.querySelector("#printer-monitoring-summary"),
-  printerMonitoringForm: document.querySelector("#printer-monitoring-form")
+  printerMonitoringForm: document.querySelector("#printer-monitoring-form"),
+  languageSummary: document.querySelector("#language-summary"),
+  languageForm: document.querySelector("#language-form")
 };
+
+const I18N = {
+  de: {
+    "login.title": "Anmeldung",
+    "login.username": "User-Name",
+    "login.password": "Passwort",
+    "login.submit": "Anmelden",
+    "nav.overview": "Übersicht",
+    "nav.materials": "Materialverwaltung",
+    "nav.maintenance": "Wartung",
+    "nav.settings": "Einstellungen",
+    "nav.logout": "Abmelden",
+    "overview.printerStatus": "Druckerstatus",
+    "overview.materialStock": "Material im Lager",
+    "settings.permission": "User können alle Module sehen und bearbeiten, außer die Einstellungen.",
+    "settings.users": "Benutzer",
+    "settings.printers": "3D-Drucker",
+    "settings.storage": "Lagerplätze",
+    "settings.materialTraffic": "Material-Ampel",
+    "settings.monitoring": "Drucker-Monitoring",
+    "settings.maintenance": "Wartungsarten",
+    "settings.language": "Sprache",
+    "settings.languageSave": "Sprache speichern",
+    "settings.languageGerman": "Deutsch",
+    "settings.languageEnglish": "English",
+    "table.material": "Material",
+    "table.manufacturer": "Hersteller",
+    "table.color": "Farbe",
+    "table.traffic": "Ampel",
+    "table.quantity": "Menge",
+    "table.priceKgNet": "Preis/kg netto",
+    "table.storage": "Lagerplatz",
+    "table.action": "Aktion",
+    "table.name": "Name",
+    "table.email": "E-Mail",
+    "table.rights": "Rechte",
+    "table.room": "Raum",
+    "table.shelf": "Regal",
+    "table.box": "Box",
+    "table.note": "Notiz",
+    "table.interval": "Intervall",
+    "table.status": "Status",
+    "action.addMaterial": "Material anlegen",
+    "action.addUser": "User anlegen",
+    "action.addPrinter": "Drucker anlegen",
+    "action.addStorage": "Lagerplatz anlegen",
+    "action.saveMaterial": "Material speichern",
+    "action.saveChanges": "Änderungen speichern",
+    "action.saveStorage": "Lagerplatz speichern",
+    "action.savePrinter": "Drucker speichern",
+    "action.saveUser": "User speichern",
+    "action.cancel": "Abbrechen",
+    "action.close": "Schließen",
+    "action.confirm": "Bestätigen",
+    "action.edit": "Bearbeiten",
+    "action.delete": "Löschen",
+    "action.remove": "Entfernen",
+    "action.test": "Testen",
+    "action.increaseStock": "Bestand erhöhen",
+    "action.decreaseStock": "Bestand reduzieren",
+    "action.saveTraffic": "Ampel speichern",
+    "action.saveMonitoring": "Monitoring speichern",
+    "action.saveMaintenance": "Wartung speichern",
+    "modal.materialCreate": "Material anlegen",
+    "modal.materialEdit": "Material bearbeiten",
+    "modal.quantityEdit": "Bestand ändern",
+    "modal.maintenanceEntry": "Wartung eintragen",
+    "modal.storageCreate": "Lagerplatz anlegen",
+    "modal.storageEdit": "Lagerplatz bearbeiten",
+    "modal.printerCreate": "Drucker anlegen",
+    "modal.printerEdit": "Drucker bearbeiten",
+    "modal.userCreate": "User anlegen",
+    "modal.userEdit": "User bearbeiten",
+    "field.type": "Typ",
+    "field.color": "Farbe",
+    "field.manufacturer": "Hersteller",
+    "field.colorValue": "Farbwert",
+    "field.quantityGrams": "Menge in Gramm",
+    "field.pricePerKgNet": "Preis pro Kilogramm netto",
+    "field.storage": "Lagerplatz",
+    "field.grams": "Gramm",
+    "field.maintenanceType": "Wartungsart",
+    "field.date": "Datum",
+    "field.operatingHours": "Betriebsstunden",
+    "field.note": "Notiz",
+    "field.model": "Modell",
+    "field.ip": "IP-Adresse",
+    "field.serial": "Seriennummer",
+    "field.accessCode": "Access Code",
+    "field.newAccessCode": "Neuer Access Code",
+    "field.location": "Standort",
+    "field.hasAms": "AMS vorhanden",
+    "field.fileCache": "Projektname über Datei-Cache ermitteln",
+    "field.active": "Aktiv",
+    "field.roleGroup": "Rechtegruppe",
+    "field.newPassword": "Neues Passwort",
+    "field.password": "Passwort",
+    "field.dueAfterHours": "Fällig nach Stunden",
+    "field.redUntilKg": "Rot bis kg",
+    "field.orangeGreenKg": "Orange/Grün ab kg",
+    "field.refreshMs": "Aktualisierung in ms",
+    "placeholder.materialSearch": "Material, Hersteller, Farbe oder Lagerplatz",
+    "placeholder.password": "Passwort",
+    "placeholder.optional": "Optional",
+    "placeholder.keepEmpty": "Leer lassen = unverändert",
+    "empty.noCriticalMaterials": "Keine knappen Materialien.",
+    "empty.noMaterials": "Keine Materialien gefunden.",
+    "empty.noPrinters": "Keine Drucker angelegt.",
+    "empty.noActivePrinters": "Keine aktiven Drucker",
+    "empty.noPrintersShort": "Keine Drucker",
+    "empty.noPreview": "Keine Vorschau",
+    "empty.noMaintenanceTypes": "Keine Wartungsarten definiert",
+    "empty.noMaintenanceTypesDot": "Keine Wartungsarten definiert.",
+    "empty.noMaintenanceRecords": "Noch keine Wartung dokumentiert.",
+    "empty.noStorage": "Kein Lagerplatz",
+    "state.printing": "Druckt",
+    "state.idle": "Bereit",
+    "state.offline": "Offline",
+    "state.maintenance": "Wartung",
+    "state.pause": "Pausiert",
+    "state.finish": "Fertig",
+    "state.failed": "Fehler",
+    "state.unknown": "Unbekannt",
+    "option.unknown": "Unbekannt",
+    "summary.positions": "Positionen",
+    "summary.inventoryValue": "Lagerwert",
+    "summary.materialTypes": "Materialtyp(en)",
+    "summary.storagePlaces": "Lagerplatz/Lagerplätze",
+    "summary.maintenanceKinds": "Wartungsart(en)",
+    "summary.entries": "Eintrag/Einträge",
+    "summary.active": "aktiv",
+    "misc.net": "netto",
+    "misc.noDefault": "Keine Vorgabe",
+    "misc.note": "Notiz",
+    "misc.due": "fällig",
+    "misc.overdue": "überfällig",
+    "misc.in": "in",
+    "misc.currentProjectMissing": "Kein Projektname verfügbar",
+    "misc.noIp": "Keine IP",
+    "misc.history": "Historie",
+    "misc.details": "Details öffnen",
+    "misc.fileCache": "Datei-Cache",
+    "misc.nozzle": "Nozzle",
+    "misc.hours": "Stunden",
+    "misc.progress": "Fortschritt",
+    "misc.remaining": "Restzeit",
+    "misc.chamber": "Kammer",
+    "misc.bed": "Bett",
+    "misc.layer": "Layer",
+    "misc.update": "Update",
+    "message.notFoundMaterial": "Material wurde nicht gefunden.",
+    "message.notFoundPrinter": "Drucker wurde nicht gefunden.",
+    "message.notFoundStorage": "Lagerplatz wurde nicht gefunden.",
+    "message.notFoundUser": "User wurde nicht gefunden.",
+    "message.notFoundMaintenance": "Wartungsart wurde nicht gefunden.",
+    "message.savedGenericError": "Speichern fehlgeschlagen.",
+    "message.savedMaterial": "Material wurde gespeichert.",
+    "message.updatedMaterial": "Material wurde aktualisiert.",
+    "message.deletedMaterial": "Material wurde gelöscht.",
+    "message.updatedPrinter": "Drucker wurde aktualisiert.",
+    "message.deletedPrinter": "Drucker wurde gelöscht.",
+    "message.updatedStorage": "Lagerplatz wurde aktualisiert.",
+    "message.deletedStorage": "Lagerplatz wurde gelöscht.",
+    "message.updatedUser": "User wurde aktualisiert.",
+    "message.deletedUser": "User wurde gelöscht.",
+    "message.loginNeeded": "Bitte erneut anmelden.",
+    "message.loginOk": "Angemeldet.",
+    "message.logoutOk": "Abgemeldet.",
+    "message.logoutConfirm": "Wirklich abmelden?",
+    "message.deleteConfirm": "wirklich löschen?",
+    "message.deleteFinalPrinter": "Diese Aktion löscht den Drucker inklusive Statushistorie. Fortfahren?",
+    "message.deleteFinalUser": "Diese Aktion kann nicht rückgängig gemacht werden. User endgültig löschen?",
+    "message.maintenanceSaved": "Wartung wurde dokumentiert.",
+    "message.maintenanceTypeSaved": "Wartungsart wurde gespeichert.",
+    "message.maintenanceTypeUpdated": "Wartungsart wurde aktualisiert.",
+    "message.maintenanceTypeRemoved": "Wartungsart wurde entfernt.",
+    "message.stockUpdated": "Bestand wurde aktualisiert.",
+    "message.trafficSaved": "Ampel-Einstellungen wurden gespeichert.",
+    "message.monitoringSaved": "Monitoring-Einstellungen wurden gespeichert.",
+    "message.languageSaved": "Sprache wurde gespeichert.",
+    "prompt.maintenanceEdit": "Wartungsart bearbeiten",
+    "prompt.noteEdit": "Notiz bearbeiten",
+    "prompt.dueHours": "Fällig nach Betriebsstunden"
+  },
+  en: {
+    "login.title": "Login",
+    "login.username": "User name",
+    "login.password": "Password",
+    "login.submit": "Log in",
+    "nav.overview": "Overview",
+    "nav.materials": "Materials",
+    "nav.maintenance": "Maintenance",
+    "nav.settings": "Settings",
+    "nav.logout": "Log out",
+    "overview.printerStatus": "Printer Status",
+    "overview.materialStock": "Material Inventory",
+    "settings.permission": "Users can view and edit all modules except settings.",
+    "settings.users": "Users",
+    "settings.printers": "3D Printers",
+    "settings.storage": "Storage Locations",
+    "settings.materialTraffic": "Material Traffic Light",
+    "settings.monitoring": "Printer Monitoring",
+    "settings.maintenance": "Maintenance Types",
+    "settings.language": "Language",
+    "settings.languageSave": "Save language",
+    "settings.languageGerman": "Deutsch",
+    "settings.languageEnglish": "English",
+    "table.material": "Material",
+    "table.manufacturer": "Manufacturer",
+    "table.color": "Color",
+    "table.traffic": "Traffic",
+    "table.quantity": "Quantity",
+    "table.priceKgNet": "Price/kg net",
+    "table.storage": "Storage",
+    "table.action": "Action",
+    "table.name": "Name",
+    "table.email": "Email",
+    "table.rights": "Rights",
+    "table.room": "Room",
+    "table.shelf": "Shelf",
+    "table.box": "Box",
+    "table.note": "Note",
+    "table.interval": "Interval",
+    "table.status": "Status",
+    "action.addMaterial": "Add Material",
+    "action.addUser": "Add User",
+    "action.addPrinter": "Add Printer",
+    "action.addStorage": "Add Storage Location",
+    "action.saveMaterial": "Save Material",
+    "action.saveChanges": "Save Changes",
+    "action.saveStorage": "Save Storage Location",
+    "action.savePrinter": "Save Printer",
+    "action.saveUser": "Save User",
+    "action.cancel": "Cancel",
+    "action.close": "Close",
+    "action.confirm": "Confirm",
+    "action.edit": "Edit",
+    "action.delete": "Delete",
+    "action.remove": "Remove",
+    "action.test": "Test",
+    "action.increaseStock": "Increase Stock",
+    "action.decreaseStock": "Decrease Stock",
+    "action.saveTraffic": "Save Traffic Light",
+    "action.saveMonitoring": "Save Monitoring",
+    "action.saveMaintenance": "Save Maintenance",
+    "modal.materialCreate": "Add Material",
+    "modal.materialEdit": "Edit Material",
+    "modal.quantityEdit": "Change Stock",
+    "modal.maintenanceEntry": "Record Maintenance",
+    "modal.storageCreate": "Add Storage Location",
+    "modal.storageEdit": "Edit Storage Location",
+    "modal.printerCreate": "Add Printer",
+    "modal.printerEdit": "Edit Printer",
+    "modal.userCreate": "Add User",
+    "modal.userEdit": "Edit User",
+    "field.type": "Type",
+    "field.color": "Color",
+    "field.manufacturer": "Manufacturer",
+    "field.colorValue": "Color Value",
+    "field.quantityGrams": "Quantity in Grams",
+    "field.pricePerKgNet": "Price per kilogram net",
+    "field.storage": "Storage Location",
+    "field.grams": "Grams",
+    "field.maintenanceType": "Maintenance Type",
+    "field.date": "Date",
+    "field.operatingHours": "Operating Hours",
+    "field.note": "Note",
+    "field.model": "Model",
+    "field.ip": "IP Address",
+    "field.serial": "Serial Number",
+    "field.accessCode": "Access Code",
+    "field.newAccessCode": "New Access Code",
+    "field.location": "Location",
+    "field.hasAms": "AMS available",
+    "field.fileCache": "Resolve project name via file cache",
+    "field.active": "Active",
+    "field.roleGroup": "Role Group",
+    "field.newPassword": "New Password",
+    "field.password": "Password",
+    "field.dueAfterHours": "Due after hours",
+    "field.redUntilKg": "Red up to kg",
+    "field.orangeGreenKg": "Orange/Green from kg",
+    "field.refreshMs": "Refresh in ms",
+    "placeholder.materialSearch": "Material, manufacturer, color, or storage",
+    "placeholder.password": "Password",
+    "placeholder.optional": "Optional",
+    "placeholder.keepEmpty": "Leave empty = unchanged",
+    "empty.noCriticalMaterials": "No low-stock materials.",
+    "empty.noMaterials": "No materials found.",
+    "empty.noPrinters": "No printers created.",
+    "empty.noActivePrinters": "No active printers",
+    "empty.noPrintersShort": "No printers",
+    "empty.noPreview": "No preview",
+    "empty.noMaintenanceTypes": "No maintenance types defined",
+    "empty.noMaintenanceTypesDot": "No maintenance types defined.",
+    "empty.noMaintenanceRecords": "No maintenance documented yet.",
+    "empty.noStorage": "No Storage Location",
+    "state.printing": "Printing",
+    "state.idle": "Ready",
+    "state.offline": "Offline",
+    "state.maintenance": "Maintenance",
+    "state.pause": "Paused",
+    "state.finish": "Finished",
+    "state.failed": "Error",
+    "state.unknown": "Unknown",
+    "option.unknown": "Unknown",
+    "summary.positions": "Positions",
+    "summary.inventoryValue": "Inventory Value",
+    "summary.materialTypes": "material type(s)",
+    "summary.storagePlaces": "storage location(s)",
+    "summary.maintenanceKinds": "maintenance type(s)",
+    "summary.entries": "entry/entries",
+    "summary.active": "active",
+    "misc.net": "net",
+    "misc.noDefault": "No Default",
+    "misc.note": "Note",
+    "misc.due": "due",
+    "misc.overdue": "overdue",
+    "misc.in": "in",
+    "misc.currentProjectMissing": "No project name available",
+    "misc.noIp": "No IP",
+    "misc.history": "History",
+    "misc.details": "Open details",
+    "misc.fileCache": "File Cache",
+    "misc.nozzle": "Nozzle",
+    "misc.hours": "Hours",
+    "misc.progress": "Progress",
+    "misc.remaining": "Remaining",
+    "misc.chamber": "Chamber",
+    "misc.bed": "Bed",
+    "misc.layer": "Layer",
+    "misc.update": "Update",
+    "message.notFoundMaterial": "Material was not found.",
+    "message.notFoundPrinter": "Printer was not found.",
+    "message.notFoundStorage": "Storage location was not found.",
+    "message.notFoundUser": "User was not found.",
+    "message.notFoundMaintenance": "Maintenance type was not found.",
+    "message.savedGenericError": "Saving failed.",
+    "message.savedMaterial": "Material was saved.",
+    "message.updatedMaterial": "Material was updated.",
+    "message.deletedMaterial": "Material was deleted.",
+    "message.updatedPrinter": "Printer was updated.",
+    "message.deletedPrinter": "Printer was deleted.",
+    "message.updatedStorage": "Storage location was updated.",
+    "message.deletedStorage": "Storage location was deleted.",
+    "message.updatedUser": "User was updated.",
+    "message.deletedUser": "User was deleted.",
+    "message.loginNeeded": "Please log in again.",
+    "message.loginOk": "Logged in.",
+    "message.logoutOk": "Logged out.",
+    "message.logoutConfirm": "Log out now?",
+    "message.deleteConfirm": "delete permanently?",
+    "message.deleteFinalPrinter": "This will delete the printer including status history. Continue?",
+    "message.deleteFinalUser": "This action cannot be undone. Delete user permanently?",
+    "message.maintenanceSaved": "Maintenance was documented.",
+    "message.maintenanceTypeSaved": "Maintenance type was saved.",
+    "message.maintenanceTypeUpdated": "Maintenance type was updated.",
+    "message.maintenanceTypeRemoved": "Maintenance type was removed.",
+    "message.stockUpdated": "Stock was updated.",
+    "message.trafficSaved": "Traffic-light settings were saved.",
+    "message.monitoringSaved": "Monitoring settings were saved.",
+    "message.languageSaved": "Language settings saved.",
+    "prompt.maintenanceEdit": "Edit maintenance type",
+    "prompt.noteEdit": "Edit note",
+    "prompt.dueHours": "Due after operating hours"
+  }
+};
+
+function language() {
+  return ["de", "en"].includes(state.data.language) ? state.data.language : "de";
+}
+
+function locale() {
+  return language() === "en" ? "en-US" : "de-DE";
+}
+
+function t(key) {
+  return I18N[language()]?.[key] || I18N.de[key] || key;
+}
+
+function setTextPreserveChildren(element, text) {
+  if (!element) {
+    return;
+  }
+  const textNode = [...element.childNodes].find((node) => node.nodeType === Node.TEXT_NODE && node.textContent.trim());
+  if (textNode) {
+    textNode.textContent = text;
+    return;
+  }
+  element.prepend(document.createTextNode(text));
+}
+
+const STATIC_TEXTS = [
+  ["#login-form h1", "login.title"],
+  ["#login-form label:nth-of-type(1)", "login.username"],
+  ["#login-form label:nth-of-type(2)", "login.password"],
+  ["#login-form button[type='submit']", "login.submit"],
+  ["[data-view='overview']", "nav.overview"],
+  ["[data-view='materials']", "nav.materials"],
+  ["[data-view='maintenance']", "nav.maintenance"],
+  ["[data-view='settings']", "nav.settings"],
+  ["#logout-button", "nav.logout"],
+  ["#overview-view .details:nth-of-type(1) h2", "overview.printerStatus"],
+  ["#overview-view .details:nth-of-type(2) h2", "overview.materialStock"],
+  ["#permission-banner", "settings.permission"],
+  ["[data-settings-tab='users']", "settings.users"],
+  ["[data-settings-tab='printers']", "settings.printers"],
+  ["[data-settings-tab='storage']", "settings.storage"],
+  ["[data-settings-tab='materials']", "settings.materialTraffic"],
+  ["[data-settings-tab='monitoring']", "settings.monitoring"],
+  ["[data-settings-tab='maintenance']", "settings.maintenance"],
+  ["[data-settings-tab='language']", "settings.language"],
+  ["[data-settings-panel='users'] h2", "settings.users"],
+  ["[data-settings-panel='users'] [data-modal-open='user-modal']", "action.addUser"],
+  ["[data-settings-panel='printers'] h2", "settings.printers"],
+  ["[data-settings-panel='printers'] [data-modal-open='printer-modal']", "action.addPrinter"],
+  ["[data-settings-panel='storage'] h2", "settings.storage"],
+  ["[data-settings-panel='storage'] [data-modal-open='storage-modal']", "action.addStorage"],
+  ["[data-settings-panel='materials'] h2", "settings.materialTraffic"],
+  ["[data-settings-panel='materials'] button[type='submit']", "action.saveTraffic"],
+  ["[data-settings-panel='monitoring'] h2", "settings.monitoring"],
+  ["[data-settings-panel='monitoring'] button[type='submit']", "action.saveMonitoring"],
+  ["[data-settings-panel='maintenance'] h2", "settings.maintenance"],
+  ["#maintenance-task-form button[type='submit']", "action.saveMaintenance"],
+  ["[data-settings-panel='language'] h2", "settings.language"],
+  ["#language-form button[type='submit']", "settings.languageSave"],
+  ["#language-form label", "settings.language"],
+  ["#language-form option[value='de']", "settings.languageGerman"],
+  ["#language-form option[value='en']", "settings.languageEnglish"],
+  ["#printer-form option[value='unknown'], #printer-edit-form option[value='unknown']", "option.unknown"]
+];
+
+const STATIC_ATTRS = [
+  ["#material-search", "placeholder", "placeholder.materialSearch"],
+  ["#material-search", "aria-label", "placeholder.materialSearch"],
+  ["#login-form input[name='password']", "placeholder", "placeholder.password"],
+  ["#maintenance-task-form input[name='description'], #maintenance-form textarea[name='note']", "placeholder", "placeholder.optional"],
+  ["#printer-edit-form input[name='accessCode'], #user-edit-form input[name='password']", "placeholder", "placeholder.keepEmpty"],
+  ["[data-modal-close]", "aria-label", "action.close"]
+];
+
+function translateTableHeaders() {
+  const headerGroups = [
+    ["#overview-view thead th", ["table.material", "table.manufacturer", "table.color", "table.traffic", "table.quantity", "table.storage"]],
+    ["#materials-view thead th", ["table.material", "table.manufacturer", "table.color", "table.traffic", "table.quantity", "table.priceKgNet", "table.storage", "table.action"]],
+    ["[data-settings-panel='users'] thead th", ["table.name", "table.email", "table.rights", "table.action"]],
+    ["[data-settings-panel='storage'] thead th", ["table.room", "table.shelf", "table.box", "table.note", "table.material", "table.action"]],
+    ["[data-settings-panel='maintenance'] thead th", ["settings.maintenance", "table.interval", "table.note", "table.status", "table.action"]]
+  ];
+
+  headerGroups.forEach(([selector, keys]) => {
+    document.querySelectorAll(selector).forEach((element, index) => {
+      if (keys[index]) {
+        element.textContent = t(keys[index]);
+      }
+    });
+  });
+}
+
+function translateFormLabels() {
+  const formLabels = [
+    ["#material-form label:nth-of-type(1)", "field.type"],
+    ["#material-form label:nth-of-type(2)", "field.color"],
+    ["#material-form label:nth-of-type(3)", "field.manufacturer"],
+    ["#material-form label:nth-of-type(4)", "field.colorValue"],
+    ["#material-form label:nth-of-type(5)", "field.quantityGrams"],
+    ["#material-form label:nth-of-type(6)", "field.pricePerKgNet"],
+    ["#material-form label:nth-of-type(7)", "field.storage"],
+    ["#material-edit-form label:nth-of-type(1)", "field.type"],
+    ["#material-edit-form label:nth-of-type(2)", "field.color"],
+    ["#material-edit-form label:nth-of-type(3)", "field.manufacturer"],
+    ["#material-edit-form label:nth-of-type(4)", "field.colorValue"],
+    ["#material-edit-form label:nth-of-type(5)", "field.quantityGrams"],
+    ["#material-edit-form label:nth-of-type(6)", "field.pricePerKgNet"],
+    ["#material-edit-form label:nth-of-type(7)", "field.storage"],
+    ["#quantity-form label", "field.grams"],
+    ["#maintenance-form label:nth-of-type(1)", "field.maintenanceType"],
+    ["#maintenance-form label:nth-of-type(2)", "field.date"],
+    ["#maintenance-form label:nth-of-type(3)", "field.operatingHours"],
+    ["#maintenance-form label:nth-of-type(4)", "field.note"],
+    ["#storage-form label:nth-of-type(1), #storage-edit-form label:nth-of-type(1)", "table.room"],
+    ["#storage-form label:nth-of-type(2), #storage-edit-form label:nth-of-type(2)", "table.shelf"],
+    ["#storage-form label:nth-of-type(3), #storage-edit-form label:nth-of-type(3)", "table.box"],
+    ["#storage-form label:nth-of-type(4), #storage-edit-form label:nth-of-type(4)", "field.note"],
+    ["#printer-form label:nth-of-type(1), #printer-edit-form label:nth-of-type(1)", "table.name"],
+    ["#printer-form label:nth-of-type(2), #printer-edit-form label:nth-of-type(2)", "field.model"],
+    ["#printer-form label:nth-of-type(3), #printer-edit-form label:nth-of-type(3)", "field.ip"],
+    ["#printer-form label:nth-of-type(4), #printer-edit-form label:nth-of-type(4)", "field.serial"],
+    ["#printer-form label:nth-of-type(5)", "field.accessCode"],
+    ["#printer-edit-form label:nth-of-type(5)", "field.newAccessCode"],
+    ["#printer-form label:nth-of-type(6), #printer-edit-form label:nth-of-type(6)", "field.location"],
+    ["#printer-form label:nth-of-type(7), #printer-edit-form label:nth-of-type(7)", "field.operatingHours"],
+    ["#printer-form label:nth-of-type(8), #printer-edit-form label:nth-of-type(8)", "field.hasAms"],
+    ["#printer-form label:nth-of-type(9), #printer-edit-form label:nth-of-type(9)", "field.fileCache"],
+    ["#printer-edit-form label:nth-of-type(10)", "field.active"],
+    ["#user-form label:nth-of-type(1), #user-edit-form label:nth-of-type(1)", "table.name"],
+    ["#user-form label:nth-of-type(2), #user-edit-form label:nth-of-type(2)", "table.email"],
+    ["#user-form label:nth-of-type(3), #user-edit-form label:nth-of-type(3)", "field.roleGroup"],
+    ["#user-form label:nth-of-type(4)", "field.password"],
+    ["#user-edit-form label:nth-of-type(4)", "field.newPassword"],
+    ["#maintenance-task-form label:nth-of-type(1)", "settings.maintenance"],
+    ["#maintenance-task-form label:nth-of-type(2)", "field.dueAfterHours"],
+    ["#maintenance-task-form label:nth-of-type(3)", "field.note"],
+    ["#traffic-light-form label:nth-of-type(1)", "field.redUntilKg"],
+    ["#traffic-light-form label:nth-of-type(2)", "field.orangeGreenKg"],
+    ["#printer-monitoring-form label", "field.refreshMs"]
+  ];
+
+  formLabels.forEach(([selector, key]) => {
+    document.querySelectorAll(selector).forEach((element) => setTextPreserveChildren(element, t(key)));
+  });
+}
+
+function translateModals() {
+  const modalTexts = [
+    ["#material-modal .eyebrow, #material-edit-modal .eyebrow", "nav.materials"],
+    ["#material-modal h2", "modal.materialCreate"],
+    ["#material-edit-modal h2", "modal.materialEdit"],
+    ["#quantity-modal .eyebrow", "modal.quantityEdit"],
+    ["#quantity-title", "modal.quantityEdit"],
+    ["#maintenance-modal .eyebrow", "nav.maintenance"],
+    ["#maintenance-modal-title", "modal.maintenanceEntry"],
+    [".maintenance-history h3", "misc.history"],
+    ["#storage-modal .eyebrow, #storage-edit-modal .eyebrow", "settings.storage"],
+    ["#storage-modal h2", "modal.storageCreate"],
+    ["#storage-edit-modal h2", "modal.storageEdit"],
+    ["#printer-modal .eyebrow, #printer-edit-modal .eyebrow", "settings.printers"],
+    ["#printer-modal h2", "modal.printerCreate"],
+    ["#printer-edit-modal h2", "modal.printerEdit"],
+    ["#user-modal .eyebrow, #user-edit-modal .eyebrow", "nav.settings"],
+    ["#user-modal h2", "modal.userCreate"],
+    ["#user-edit-modal h2", "modal.userEdit"]
+  ];
+
+  modalTexts.forEach(([selector, key]) => {
+    document.querySelectorAll(selector).forEach((element) => {
+      element.textContent = t(key);
+    });
+  });
+
+  document.querySelectorAll(".modal-actions .secondary-button").forEach((button) => {
+    button.textContent = t("action.cancel");
+  });
+  document.querySelector("#material-form button[type='submit']").textContent = t("action.saveMaterial");
+  document.querySelector("#material-edit-form button[type='submit']").textContent = t("action.saveChanges");
+  document.querySelector("#quantity-form button[type='submit']").textContent = t("action.confirm");
+  document.querySelector("#maintenance-form button[type='submit']").textContent = t("action.saveMaintenance");
+  document.querySelector("#storage-form button[type='submit']").textContent = t("action.saveStorage");
+  document.querySelector("#storage-edit-form button[type='submit']").textContent = t("action.saveChanges");
+  document.querySelector("#printer-form button[type='submit']").textContent = t("action.savePrinter");
+  document.querySelector("#printer-edit-form button[type='submit']").textContent = t("action.saveChanges");
+  document.querySelector("#user-form button[type='submit']").textContent = t("action.saveUser");
+  document.querySelector("#user-edit-form button[type='submit']").textContent = t("action.saveChanges");
+}
+
+function applyTranslations() {
+  document.documentElement.lang = language();
+  STATIC_TEXTS.forEach(([selector, key]) => {
+    document.querySelectorAll(selector).forEach((element) => {
+      if (element.matches("label")) {
+        setTextPreserveChildren(element, t(key));
+        return;
+      }
+      element.textContent = t(key);
+    });
+  });
+  STATIC_ATTRS.forEach(([selector, attr, key]) => {
+    document.querySelectorAll(selector).forEach((element) => {
+      element.setAttribute(attr, t(key));
+    });
+  });
+  translateTableHeaders();
+  translateFormLabels();
+  translateModals();
+}
 
 function openModal(id) {
   const modal = document.querySelector(`#${id}`);
@@ -78,14 +656,14 @@ function closeModalFromElement(element) {
 function formatGrams(value) {
   const grams = Number(value || 0);
   if (grams >= 1000) {
-    return `${(grams / 1000).toLocaleString("de-DE", { maximumFractionDigits: 1 })} kg`;
+    return `${(grams / 1000).toLocaleString(locale(), { maximumFractionDigits: 1 })} kg`;
   }
-  return `${grams.toLocaleString("de-DE")} g`;
+  return `${grams.toLocaleString(locale())} g`;
 }
 
 function formatEuroNet(value) {
   const amount = Number(value || 0);
-  return `${amount.toLocaleString("de-DE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € netto`;
+  return `${amount.toLocaleString(locale(), { minimumFractionDigits: 2, maximumFractionDigits: 2 })} € ${t("misc.net")}`;
 }
 
 function materialInventoryValue(material) {
@@ -103,22 +681,22 @@ function escapeHtml(value) {
 
 function storageLabel(item) {
   if (!item || ("storageLocationId" in item && !item.storageLocationId) || !item.room || !item.shelf || !item.box) {
-    return "Kein Lagerplatz";
+    return t("empty.noStorage");
   }
   return `${item.room} / ${item.shelf} / ${item.box}`;
 }
 
 function statusLabel(status) {
   return {
-    printing: "Druckt",
-    running: "Druckt",
-    idle: "Bereit",
-    offline: "Offline",
-    maintenance: "Wartung",
-    pause: "Pausiert",
-    finish: "Fertig",
-    failed: "Fehler",
-    unknown: "Unbekannt"
+    printing: t("state.printing"),
+    running: t("state.printing"),
+    idle: t("state.idle"),
+    offline: t("state.offline"),
+    maintenance: t("state.maintenance"),
+    pause: t("state.pause"),
+    finish: t("state.finish"),
+    failed: t("state.failed"),
+    unknown: t("state.unknown")
   }[status] || status;
 }
 
@@ -167,7 +745,7 @@ function formatDateTime(value) {
   if (!value) {
     return "–";
   }
-  return new Date(value.replace(" ", "T")).toLocaleString("de-DE", {
+  return new Date(value.replace(" ", "T")).toLocaleString(locale(), {
     dateStyle: "short",
     timeStyle: "medium"
   });
@@ -177,7 +755,7 @@ function formatDate(value) {
   if (!value) {
     return "–";
   }
-  return new Date(`${value}T00:00:00`).toLocaleDateString("de-DE", {
+  return new Date(`${value}T00:00:00`).toLocaleDateString(locale(), {
     dateStyle: "medium"
   });
 }
@@ -194,22 +772,22 @@ function oneDecimal(value) {
 function formatHours(value) {
   const hours = Number(value || 0);
   if (!Number.isFinite(hours) || hours <= 0) {
-    return "Keine Vorgabe";
+    return t("misc.noDefault");
   }
-  return `${hours.toLocaleString("de-DE")} h`;
+  return `${hours.toLocaleString(locale())} h`;
 }
 
 function formatOperatingHours(value) {
-  return `${Number(oneDecimal(value)).toLocaleString("de-DE", { maximumFractionDigits: 1 })} h`;
+  return `${Number(oneDecimal(value)).toLocaleString(locale(), { maximumFractionDigits: 1 })} h`;
 }
 
 function maintenanceDueLabel(task, record, printer) {
   const dueAfterHours = Number(task.dueAfterHours || 0);
   if (dueAfterHours <= 0) {
-    return "Notiz";
+    return t("misc.note");
   }
   if (!record) {
-    return "fällig";
+    return t("misc.due");
   }
 
   const currentHours = Number(printer.operatingHours || 0);
@@ -218,13 +796,13 @@ function maintenanceDueLabel(task, record, printer) {
   const remainingHours = dueAfterHours - usedHours;
 
   if (remainingHours <= 0) {
-    return `${Math.ceil(Math.abs(remainingHours)).toLocaleString("de-DE")} h überfällig`;
+    return `${Math.ceil(Math.abs(remainingHours)).toLocaleString(locale())} h ${t("misc.overdue")}`;
   }
-  return `in ${Math.ceil(remainingHours).toLocaleString("de-DE")} h`;
+  return `${t("misc.in")} ${Math.ceil(remainingHours).toLocaleString(locale())} h`;
 }
 
 function printProjectName(status) {
-  return status.currentFile || status.subtaskName || "Kein Projektname verfügbar";
+  return status.currentFile || status.subtaskName || t("misc.currentProjectMissing");
 }
 
 function materialManufacturer(material) {
@@ -331,19 +909,19 @@ function materialTrafficLight(material) {
   const threshold = Number(state.data.trafficLight?.thresholdGrams ?? 3000);
 
   if (quantity <= redLimit) {
-    return { tone: "red", label: "Rot" };
+    return { tone: "red", label: language() === "en" ? "Red" : "Rot" };
   }
 
   if (quantity < threshold) {
     return { tone: "orange", label: "Orange" };
   }
 
-  return { tone: "green", label: "Grün" };
+  return { tone: "green", label: language() === "en" ? "Green" : "Grün" };
 }
 
 function storageOptions(selectedId = "") {
   return [
-    `<option value=""${selectedId ? "" : " selected"}>Ohne Lagerplatz</option>`,
+    `<option value=""${selectedId ? "" : " selected"}>${t("empty.noStorage")}</option>`,
     ...state.data.storageLocations.map((location) => {
       const selected = String(location.id) === String(selectedId) ? " selected" : "";
       return `<option value="${location.id}"${selected}>${escapeHtml(storageLabel(location))}</option>`;
@@ -364,6 +942,7 @@ function showLogin() {
   elements.appShell.hidden = true;
   elements.loginScreen.hidden = false;
   elements.loginForm.reset();
+  applyTranslations();
 }
 
 function showApp(user) {
@@ -394,7 +973,7 @@ function setView(view) {
 }
 
 function setSettingsTab(tab) {
-  const targetTab = ["users", "printers", "storage", "materials", "monitoring", "maintenance"].includes(tab) ? tab : "users";
+  const targetTab = ["users", "printers", "storage", "materials", "monitoring", "maintenance", "language"].includes(tab) ? tab : "users";
   state.settingsTab = targetTab;
 
   document.querySelectorAll("[data-settings-tab]").forEach((button) => {
@@ -420,7 +999,7 @@ function applyPermissions() {
 function renderOverview() {
   const materialTypes = new Set(state.data.materials.map((material) => material.type));
 
-  elements.materialTypes.textContent = `${materialTypes.size} Materialtyp(en)`;
+  elements.materialTypes.textContent = `${materialTypes.size} ${t("summary.materialTypes")}`;
 
   const overviewMaterials = state.data.materials.filter((material) => {
     const trafficLight = materialTrafficLight(material);
@@ -452,7 +1031,7 @@ function renderOverview() {
     })
     .join("") || `
       <tr>
-        <td colspan="6">Keine knappen Materialien.</td>
+        <td colspan="6">${t("empty.noCriticalMaterials")}</td>
       </tr>
     `;
 
@@ -467,7 +1046,7 @@ function renderOverview() {
   }, {});
   elements.printerStatusSummary.textContent = Object.entries(summary)
     .map(([status, count]) => `${count} ${statusLabel(status)}`)
-    .join(" · ") || "Keine aktiven Drucker";
+    .join(" · ") || t("empty.noActivePrinters");
 
   elements.printerList.innerHTML = visiblePrinters
     .map((printer) => {
@@ -476,9 +1055,9 @@ function renderOverview() {
       const progressWidth = Math.max(0, Math.min(100, Number(status.progressPercent || 0)));
       const preview = printer.previewImageUrl
         ? `<img class="overview-printer-preview-image" src="${escapeHtml(printer.previewImageUrl)}" alt="${escapeHtml(printProjectName(status))}">`
-        : "<div class=\"overview-printer-preview-placeholder\">Keine Vorschau</div>";
+        : `<div class="overview-printer-preview-placeholder">${t("empty.noPreview")}</div>`;
       return `
-        <article class="overview-printer-card" data-overview-printer="${printer.id}" tabindex="0" role="button" aria-label="${escapeHtml(printer.name)} Details öffnen">
+        <article class="overview-printer-card" data-overview-printer="${printer.id}" tabindex="0" role="button" aria-label="${escapeHtml(`${printer.name} ${t("misc.details")}`)}">
           <div class="overview-printer-header">
             <strong>${escapeHtml(printer.name)}</strong>
             <span>
@@ -490,8 +1069,8 @@ function renderOverview() {
             ${preview}
           </div>
           <div class="overview-printer-progress-meta">
-            <span>Fortschritt ${displayValue(status.progressPercent, " %")}</span>
-            <span>Restzeit ${displayValue(status.remainingMinutes, " min")}</span>
+            <span>${t("misc.progress")} ${displayValue(status.progressPercent, " %")}</span>
+            <span>${t("misc.remaining")} ${displayValue(status.remainingMinutes, " min")}</span>
           </div>
           <div class="overview-progress-line">
             <span style="width: ${progressWidth}%"></span>
@@ -510,7 +1089,7 @@ function renderPrinterDetailCard(printer, { actions = true } = {}) {
   const progressWidth = printerOnline(printer) ? Math.max(0, Math.min(100, Number(status.progressPercent || 0))) : 0;
   const preview = printer.previewImageUrl && printerOnline(printer)
     ? `<img class="print-preview-image" src="${escapeHtml(printer.previewImageUrl)}" alt="${escapeHtml(printProjectName(status))}">`
-    : "<div class=\"print-preview-placeholder\">Keine Vorschau</div>";
+        : `<div class="print-preview-placeholder">${t("empty.noPreview")}</div>`;
 
   return `
     <article class="printer-monitor-card ${hasErrors ? "has-errors" : ""}">
@@ -518,7 +1097,7 @@ function renderPrinterDetailCard(printer, { actions = true } = {}) {
         <div class="printer-title-line">
           <strong>${escapeHtml(printer.name)}</strong>
           <span>${escapeHtml(printer.model || "unknown")}</span>
-          <span>${escapeHtml(printer.ipAddress || "Keine IP")}</span>
+          <span>${escapeHtml(printer.ipAddress || t("misc.noIp"))}</span>
         </div>
         <div class="printer-state-line">
           <span class="status-dot ${printerTrafficTone(printer)}" title="${escapeHtml(statusLabel(stateName))}"></span>
@@ -527,37 +1106,37 @@ function renderPrinterDetailCard(printer, { actions = true } = {}) {
       </div>
       <div class="printer-card-main">
         <div class="printer-metrics">
-          <span>Nozzle: <strong>${displayTemperature(status.nozzleTemp)} / ${displayTemperature(status.nozzleTargetTemp)}</strong></span>
-          <span>Bett: <strong>${displayTemperature(status.bedTemp)} / ${displayTemperature(status.bedTargetTemp)}</strong></span>
-          <span>Layer: <strong>${displayValue(status.currentLayer)} / ${displayValue(status.totalLayers)}</strong></span>
-          <span>Kammer: <strong>${displayTemperature(status.chamberTemp)}</strong></span>
-          <span>Stunden: <strong>${formatOperatingHours(printer.operatingHours)}</strong></span>
+          <span>${t("misc.nozzle")}: <strong>${displayTemperature(status.nozzleTemp)} / ${displayTemperature(status.nozzleTargetTemp)}</strong></span>
+          <span>${t("misc.bed")}: <strong>${displayTemperature(status.bedTemp)} / ${displayTemperature(status.bedTargetTemp)}</strong></span>
+          <span>${t("misc.layer")}: <strong>${displayValue(status.currentLayer)} / ${displayValue(status.totalLayers)}</strong></span>
+          <span>${t("misc.chamber")}: <strong>${displayTemperature(status.chamberTemp)}</strong></span>
+          <span>${t("misc.hours")}: <strong>${formatOperatingHours(printer.operatingHours)}</strong></span>
         </div>
         <div class="print-preview-frame">
           ${preview}
         </div>
         <div class="printer-flags">
           ${printer.hasAms ? "<span>AMS</span>" : ""}
-          ${printer.enableFileCacheLookup ? "<span>Datei-Cache</span>" : ""}
+          ${printer.enableFileCacheLookup ? `<span>${t("misc.fileCache")}</span>` : ""}
           ${hasErrors ? "<span class=\"error-pill\">HMS</span>" : ""}
         </div>
       </div>
       <div class="printer-progress-meta">
-        <span>Fortschritt ${displayValue(status.progressPercent, " %")}</span>
-        <span>Restzeit ${displayValue(status.remainingMinutes, " min")}</span>
+        <span>${t("misc.progress")} ${displayValue(status.progressPercent, " %")}</span>
+        <span>${t("misc.remaining")} ${displayValue(status.remainingMinutes, " min")}</span>
       </div>
       <div class="progress-line">
         <span style="width: ${progressWidth}%"></span>
       </div>
       ${actions ? `
         <div class="row-actions">
-          <button class="secondary-button compact-button" type="button" data-printer-test="${printer.id}">Testen</button>
-          <button class="secondary-button compact-button" type="button" data-printer-edit="${printer.id}">Bearbeiten</button>
-          <button class="danger-button compact-button" type="button" data-printer-delete="${printer.id}">Löschen</button>
+          <button class="secondary-button compact-button" type="button" data-printer-test="${printer.id}">${t("action.test")}</button>
+          <button class="secondary-button compact-button" type="button" data-printer-edit="${printer.id}">${t("action.edit")}</button>
+          <button class="danger-button compact-button" type="button" data-printer-delete="${printer.id}">${t("action.delete")}</button>
         </div>
       ` : ""}
       <div class="printer-file-row">
-        <span>Update ${formatDateTime(status.receivedAt)}</span>
+        <span>${t("misc.update")} ${formatDateTime(status.receivedAt)}</span>
       </div>
     </article>
   `;
@@ -572,7 +1151,7 @@ function renderPrinters() {
 
   elements.printerSummary.textContent = Object.entries(summary)
     .map(([status, count]) => `${count} ${statusLabel(status)}`)
-    .join(" · ") || "Keine Drucker";
+    .join(" · ") || t("empty.noPrintersShort");
 
   elements.printerCards.innerHTML = state.data.printers
     .map((printer) => renderPrinterDetailCard(printer))
@@ -587,9 +1166,9 @@ function renderMaterials() {
   const visibleMaterials = state.data.materials.filter((material) => materialMatchesSearch(material, searchQuery));
 
   elements.materialCount.textContent = searchQuery
-    ? `${visibleMaterials.length} von ${state.data.materials.length} Positionen`
-    : `${state.data.materials.length} Positionen`;
-  elements.inventoryValue.textContent = `Lagerwert ${formatEuroNet(
+    ? `${visibleMaterials.length} ${language() === "en" ? "of" : "von"} ${state.data.materials.length} ${t("summary.positions")}`
+    : `${state.data.materials.length} ${t("summary.positions")}`;
+  elements.inventoryValue.textContent = `${t("summary.inventoryValue")} ${formatEuroNet(
     visibleMaterials.reduce((sum, material) => sum + materialInventoryValue(material), 0)
   )}`;
   elements.materialCards.innerHTML = visibleMaterials
@@ -610,17 +1189,17 @@ function renderMaterials() {
           </td>
           <td>
             <div class="quantity-control">
-              <button class="compact-button quantity-button" type="button" data-quantity-mode="minus" data-quantity-material="${material.id}" aria-label="Bestand verringern">-</button>
+              <button class="compact-button quantity-button" type="button" data-quantity-mode="minus" data-quantity-material="${material.id}" aria-label="${t("action.decreaseStock")}">-</button>
               <strong>${formatGrams(material.quantityGrams)}</strong>
-              <button class="compact-button quantity-button" type="button" data-quantity-mode="plus" data-quantity-material="${material.id}" aria-label="Bestand erhöhen">+</button>
+              <button class="compact-button quantity-button" type="button" data-quantity-mode="plus" data-quantity-material="${material.id}" aria-label="${t("action.increaseStock")}">+</button>
             </div>
           </td>
           <td>${formatEuroNet(material.pricePerKgNet)}</td>
           <td>${escapeHtml(storageLabel(material))}</td>
           <td>
             <div class="row-actions">
-              <button class="secondary-button compact-button" type="button" data-material-edit="${material.id}">Bearbeiten</button>
-              <button class="danger-button compact-button" type="button" data-material-delete="${material.id}">Löschen</button>
+              <button class="secondary-button compact-button" type="button" data-material-edit="${material.id}">${t("action.edit")}</button>
+              <button class="danger-button compact-button" type="button" data-material-delete="${material.id}">${t("action.delete")}</button>
             </div>
           </td>
         </tr>
@@ -628,7 +1207,7 @@ function renderMaterials() {
     })
     .join("") || `
       <tr>
-        <td colspan="8" class="empty-row">Keine Materialien gefunden.</td>
+        <td colspan="8" class="empty-row">${t("empty.noMaterials")}</td>
       </tr>
     `;
 }
@@ -636,7 +1215,7 @@ function renderMaterials() {
 function openEditMaterialModal(id) {
   const material = materialById(id);
   if (!material) {
-    showToast("Material wurde nicht gefunden.", "error");
+    showToast(t("message.notFoundMaterial"), "error");
     return;
   }
 
@@ -647,7 +1226,7 @@ function openEditMaterialModal(id) {
   form.elements.manufacturer.value = materialManufacturer(material);
   form.elements.colorHex.value = material.colorHex;
   form.elements.quantityGrams.value = material.quantityGrams;
-  form.elements.pricePerKgNet.value = Number(material.pricePerKgNet || 0).toLocaleString("de-DE", {
+  form.elements.pricePerKgNet.value = Number(material.pricePerKgNet || 0).toLocaleString(locale(), {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   });
@@ -658,7 +1237,7 @@ function openEditMaterialModal(id) {
 function openQuantityModal(id, mode) {
   const material = materialById(id);
   if (!material) {
-    showToast("Material wurde nicht gefunden.", "error");
+    showToast(t("message.notFoundMaterial"), "error");
     return;
   }
 
@@ -666,16 +1245,18 @@ function openQuantityModal(id, mode) {
   form.elements.id.value = material.id;
   form.elements.mode.value = mode;
   form.elements.grams.value = "";
-  elements.quantityTitle.textContent = mode === "plus" ? "Bestand erhöhen" : "Bestand verringern";
+  elements.quantityTitle.textContent = mode === "plus"
+    ? (language() === "en" ? "Increase Stock" : "Bestand erhöhen")
+    : (language() === "en" ? "Decrease Stock" : "Bestand verringern");
   openModal("quantity-modal");
   window.setTimeout(() => elements.quantityGrams.focus(), 0);
 }
 
 async function deleteMaterial(id) {
   const material = state.data.materials.find((item) => String(item.id) === String(id));
-  const label = material ? materialLabel(material) : "dieses Material";
+  const label = material ? materialLabel(material) : t("table.material");
 
-  if (!window.confirm(`${label} wirklich löschen?`)) {
+  if (!window.confirm(`${label} ${t("message.deleteConfirm")}`)) {
     return;
   }
 
@@ -685,12 +1266,12 @@ async function deleteMaterial(id) {
 
   const body = await response.json();
   if (!response.ok) {
-    throw new Error(body.error || "Material konnte nicht gelöscht werden.");
+    throw new Error(body.error || t("message.deletedMaterial"));
   }
 
   state.data = body;
   render();
-  showToast("Material wurde gelöscht.");
+  showToast(t("message.deletedMaterial"));
 }
 
 async function updateMaterial(form) {
@@ -706,13 +1287,13 @@ async function updateMaterial(form) {
 
   const body = await response.json();
   if (!response.ok) {
-    throw new Error(body.error || "Material konnte nicht gespeichert werden.");
+    throw new Error(body.error || t("message.savedGenericError"));
   }
 
   state.data = body;
   closeModalFromElement(form);
   render();
-  showToast("Material wurde aktualisiert.");
+  showToast(t("message.updatedMaterial"));
 }
 
 async function adjustQuantity(form) {
@@ -720,7 +1301,7 @@ async function adjustQuantity(form) {
   const grams = Number.parseInt(payload.grams, 10);
 
   if (!Number.isInteger(grams) || grams < 1) {
-    throw new Error("Bitte einen Grammwert größer 0 eingeben.");
+    throw new Error(language() === "en" ? "Please enter a gram value greater than 0." : "Bitte einen Grammwert größer 0 eingeben.");
   }
 
   const deltaGrams = payload.mode === "minus" ? -grams : grams;
@@ -732,17 +1313,17 @@ async function adjustQuantity(form) {
 
   const body = await response.json();
   if (!response.ok) {
-    throw new Error(body.error || "Bestand konnte nicht geändert werden.");
+    throw new Error(body.error || t("message.savedGenericError"));
   }
 
   state.data = body;
   closeModalFromElement(form);
   render();
-  showToast("Bestand wurde aktualisiert.");
+  showToast(t("message.stockUpdated"));
 }
 
 function renderStorage() {
-  elements.storageSummary.textContent = `${state.data.storageLocations.length} Lagerplatz/Lagerplätze`;
+  elements.storageSummary.textContent = `${state.data.storageLocations.length} ${t("summary.storagePlaces")}`;
   elements.storageCards.innerHTML = state.data.storageLocations
     .map((location) => {
       const count = state.data.materials.filter((material) => material.storageLocationId === location.id).length;
@@ -755,8 +1336,8 @@ function renderStorage() {
           <td>${count}</td>
           <td>
             <div class="row-actions">
-              <button class="secondary-button compact-button" type="button" data-storage-edit="${location.id}">Bearbeiten</button>
-              <button class="danger-button compact-button" type="button" data-storage-delete="${location.id}">Löschen</button>
+              <button class="secondary-button compact-button" type="button" data-storage-edit="${location.id}">${t("action.edit")}</button>
+              <button class="danger-button compact-button" type="button" data-storage-delete="${location.id}">${t("action.delete")}</button>
             </div>
           </td>
         </tr>
@@ -769,7 +1350,7 @@ function renderMaintenance() {
   const printers = state.data.printers;
   const tasks = dueMaintenanceTasks();
   const activeTasks = activeMaintenanceTasks();
-  elements.maintenanceSummary.textContent = `${printers.length} Drucker · ${activeTasks.length} Wartungsart(en)`;
+  elements.maintenanceSummary.textContent = `${printers.length} ${t("settings.printers")} · ${activeTasks.length} ${t("summary.maintenanceKinds")}`;
 
   elements.maintenancePrinterList.innerHTML = printers
     .map((printer) => {
@@ -791,40 +1372,40 @@ function renderMaintenance() {
         <button class="maintenance-printer-card" type="button" data-maintenance-printer="${printer.id}">
           <span class="maintenance-printer-title">
             <strong>${escapeHtml(printer.name)}</strong>
-            <span>${escapeHtml(printer.model || "unknown")} · ${escapeHtml(printer.ipAddress || "Keine IP")} · ${formatOperatingHours(printer.operatingHours)}</span>
+            <span>${escapeHtml(printer.model || "unknown")} · ${escapeHtml(printer.ipAddress || t("misc.noIp"))} · ${formatOperatingHours(printer.operatingHours)}</span>
           </span>
           <ul>
-            ${latestRows || "<li><span>Keine Wartungsarten definiert</span><strong>–</strong></li>"}
+            ${latestRows || `<li><span>${t("empty.noMaintenanceTypes")}</span><strong>–</strong></li>`}
           </ul>
-          <span class="maintenance-printer-foot">${records.length} Eintrag/Einträge</span>
+          <span class="maintenance-printer-foot">${records.length} ${t("summary.entries")}</span>
         </button>
       `;
     })
-    .join("") || "<p class=\"empty-state\">Keine Drucker angelegt.</p>";
+    .join("") || `<p class="empty-state">${t("empty.noPrinters")}</p>`;
 }
 
 function renderMaintenanceTaskSettings() {
   const tasks = state.data.maintenanceTasks;
   const activeCount = tasks.filter((task) => task.isActive).length;
-  elements.maintenanceTaskSummary.textContent = `${activeCount} aktiv`;
+  elements.maintenanceTaskSummary.textContent = `${activeCount} ${t("summary.active")}`;
   elements.maintenanceTaskList.innerHTML = tasks
     .map((task) => `
       <tr class="${task.isActive ? "" : "muted-row"}">
         <td><strong>${escapeHtml(task.name)}</strong></td>
         <td>${formatHours(task.dueAfterHours)}</td>
         <td>${escapeHtml(task.description || "-")}</td>
-        <td>${task.isActive ? "Aktiv" : "Archiviert"}</td>
+        <td>${task.isActive ? t("summary.active") : (language() === "en" ? "Archived" : "Archiviert")}</td>
         <td>
           <div class="row-actions">
-            <button class="secondary-button compact-button" type="button" data-maintenance-task-edit="${task.id}">Bearbeiten</button>
-            <button class="danger-button compact-button" type="button" data-maintenance-task-delete="${task.id}">Entfernen</button>
+            <button class="secondary-button compact-button" type="button" data-maintenance-task-edit="${task.id}">${t("action.edit")}</button>
+            <button class="danger-button compact-button" type="button" data-maintenance-task-delete="${task.id}">${t("action.remove")}</button>
           </div>
         </td>
       </tr>
     `)
     .join("") || `
       <tr>
-        <td colspan="5">Keine Wartungsarten definiert.</td>
+        <td colspan="5">${t("empty.noMaintenanceTypesDot")}</td>
       </tr>
     `;
 }
@@ -848,7 +1429,7 @@ function maintenanceTaskOptions(selectedId = "") {
       const selected = String(task.id) === String(selectedId) ? " selected" : "";
       return `<option value="${task.id}"${selected}>${escapeHtml(task.name)}</option>`;
     })
-    .join("") || "<option value=\"\">Keine Wartungsarten definiert</option>";
+    .join("") || `<option value="">${t("empty.noMaintenanceTypes")}</option>`;
 }
 
 function renderMaintenanceHistory(printerId) {
@@ -861,13 +1442,13 @@ function renderMaintenanceHistory(printerId) {
         ${record.note ? `<small>${escapeHtml(record.note)}</small>` : ""}
       </article>
     `)
-    .join("") || "<p class=\"empty-state\">Noch keine Wartung dokumentiert.</p>";
+    .join("") || `<p class="empty-state">${t("empty.noMaintenanceRecords")}</p>`;
 }
 
 function openMaintenanceModal(id) {
   const printer = printerById(id);
   if (!printer) {
-    showToast("Drucker wurde nicht gefunden.", "error");
+    showToast(t("message.notFoundPrinter"), "error");
     return;
   }
 
@@ -876,7 +1457,7 @@ function openMaintenanceModal(id) {
   form.elements.printerId.value = printer.id;
   form.elements.performedAt.value = todayInputValue();
   form.elements.performedAtHours.value = oneDecimal(printer.operatingHours);
-  elements.maintenanceModalTitle.textContent = `Wartung: ${printer.name}`;
+  elements.maintenanceModalTitle.textContent = `${t("nav.maintenance")}: ${printer.name}`;
   elements.maintenanceTaskSelect.innerHTML = maintenanceTaskOptions();
   renderMaintenanceHistory(printer.id);
   openModal("maintenance-modal");
@@ -885,7 +1466,7 @@ function openMaintenanceModal(id) {
 function openPrinterDetailModal(id) {
   const printer = printerById(id);
   if (!printer) {
-    showToast("Drucker wurde nicht gefunden.", "error");
+    showToast(t("message.notFoundPrinter"), "error");
     return;
   }
 
@@ -897,7 +1478,7 @@ function openPrinterDetailModal(id) {
 function openEditPrinterModal(id) {
   const printer = printerById(id);
   if (!printer) {
-    showToast("Drucker wurde nicht gefunden.", "error");
+    showToast(t("message.notFoundPrinter"), "error");
     return;
   }
 
@@ -941,24 +1522,24 @@ async function updatePrinter(form) {
 
   const body = await response.json();
   if (!response.ok) {
-    throw new Error(body.error || "Drucker konnte nicht gespeichert werden.");
+    throw new Error(body.error || t("message.savedGenericError"));
   }
 
   state.data = body;
   closeModalFromElement(form);
   render();
-  showToast("Drucker wurde aktualisiert.");
+  showToast(t("message.updatedPrinter"));
 }
 
 async function deletePrinter(id) {
   const printer = printerById(id);
-  const label = printer ? printer.name : "diesen Drucker";
+  const label = printer ? printer.name : t("settings.printers");
 
-  if (!window.confirm(`${label} wirklich löschen?`)) {
+  if (!window.confirm(`${label} ${t("message.deleteConfirm")}`)) {
     return;
   }
 
-  if (!window.confirm("Diese Aktion löscht den Drucker inklusive Statushistorie. Fortfahren?")) {
+  if (!window.confirm(t("message.deleteFinalPrinter"))) {
     return;
   }
 
@@ -968,30 +1549,30 @@ async function deletePrinter(id) {
 
   const body = await response.json();
   if (!response.ok) {
-    throw new Error(body.error || "Drucker konnte nicht gelöscht werden.");
+    throw new Error(body.error || t("message.savedGenericError"));
   }
 
   state.data = body;
   render();
-  showToast("Drucker wurde gelöscht.");
+  showToast(t("message.deletedPrinter"));
 }
 
 async function testPrinter(id) {
-  showToast("Verbindungstest läuft…", "warn");
+  showToast(language() === "en" ? "Connection test running..." : "Verbindungstest läuft…", "warn");
   const response = await fetch(`/api/printers/${encodeURIComponent(id)}/test-connection`, {
     method: "POST"
   });
   const body = await response.json();
   if (!response.ok) {
-    throw new Error(body.message || body.error || "Verbindungstest fehlgeschlagen.");
+    throw new Error(body.message || body.error || (language() === "en" ? "Connection test failed." : "Verbindungstest fehlgeschlagen."));
   }
-  showToast(body.message || "MQTT-Verbindung erfolgreich.");
+  showToast(body.message || (language() === "en" ? "MQTT connection successful." : "MQTT-Verbindung erfolgreich."));
 }
 
 function openEditStorageModal(id) {
   const location = storageById(id);
   if (!location) {
-    showToast("Lagerplatz wurde nicht gefunden.", "error");
+    showToast(t("message.notFoundStorage"), "error");
     return;
   }
 
@@ -1017,24 +1598,24 @@ async function updateStorageLocation(form) {
 
   const body = await response.json();
   if (!response.ok) {
-    throw new Error(body.error || "Lagerplatz konnte nicht gespeichert werden.");
+    throw new Error(body.error || t("message.savedGenericError"));
   }
 
   state.data = body;
   closeModalFromElement(form);
   render();
-  showToast("Lagerplatz wurde aktualisiert.");
+  showToast(t("message.updatedStorage"));
 }
 
 async function deleteStorageLocation(id) {
   const location = state.data.storageLocations.find((item) => String(item.id) === String(id));
-  const label = location ? storageLabel(location) : "diesen Lagerplatz";
+  const label = location ? storageLabel(location) : t("settings.storage");
   const materialCount = state.data.materials.filter((material) => String(material.storageLocationId) === String(id)).length;
   const note = materialCount > 0
-    ? ` ${materialCount} Materialeintrag/Materialeinträge werden danach ohne Lagerplatz geführt.`
+    ? ` ${materialCount} ${language() === "en" ? "material position(s) will no longer have a storage location." : "Materialeintrag/Materialeinträge werden danach ohne Lagerplatz geführt."}`
     : "";
 
-  if (!window.confirm(`${label} wirklich löschen?${note}`)) {
+  if (!window.confirm(`${label} ${t("message.deleteConfirm")}${note}`)) {
     return;
   }
 
@@ -1044,16 +1625,16 @@ async function deleteStorageLocation(id) {
 
   const body = await response.json();
   if (!response.ok) {
-    throw new Error(body.error || "Lagerplatz konnte nicht gelöscht werden.");
+    throw new Error(body.error || t("message.savedGenericError"));
   }
 
   state.data = body;
   render();
-  showToast("Lagerplatz wurde gelöscht.");
+  showToast(t("message.deletedStorage"));
 }
 
 function renderUsers() {
-  elements.userSummary.textContent = `${state.data.users.length} User`;
+  elements.userSummary.textContent = `${state.data.users.length} ${t("settings.users")}`;
   elements.userList.innerHTML = state.data.users
     .map((user) => `
       <tr>
@@ -1062,8 +1643,8 @@ function renderUsers() {
         <td><span class="role-pill ${user.role}">${user.role === "admin" ? "Admin" : "User"}</span></td>
         <td>
           <div class="row-actions">
-            <button class="secondary-button compact-button" type="button" data-user-edit="${user.id}">Bearbeiten</button>
-            <button class="danger-button compact-button" type="button" data-user-delete="${user.id}">Löschen</button>
+            <button class="secondary-button compact-button" type="button" data-user-edit="${user.id}">${t("action.edit")}</button>
+            <button class="danger-button compact-button" type="button" data-user-delete="${user.id}">${t("action.delete")}</button>
           </div>
         </td>
       </tr>
@@ -1076,7 +1657,7 @@ function renderTrafficLightSettings() {
   const redKg = Number(settings.redLimitGrams || 0) / 1000;
   const thresholdKg = Number(settings.thresholdGrams || 3000) / 1000;
 
-  elements.trafficLightSummary.textContent = `Rot ${redKg.toLocaleString("de-DE")} kg · Orange < ${thresholdKg.toLocaleString("de-DE")} kg · Grün > ${thresholdKg.toLocaleString("de-DE")} kg`;
+  elements.trafficLightSummary.textContent = `${language() === "en" ? "Red" : "Rot"} ${redKg.toLocaleString(locale())} kg · Orange < ${thresholdKg.toLocaleString(locale())} kg · ${language() === "en" ? "Green" : "Grün"} > ${thresholdKg.toLocaleString(locale())} kg`;
   elements.trafficLightForm.elements.redLimitKg.value = redKg;
   elements.trafficLightForm.elements.thresholdKg.value = thresholdKg;
 }
@@ -1086,8 +1667,16 @@ function renderPrinterMonitoringSettings() {
   const intervalMs = Number(settings.statusFlushIntervalMs || 5000);
   const seconds = intervalMs / 1000;
 
-  elements.printerMonitoringSummary.textContent = `${intervalMs.toLocaleString("de-DE")} ms · ${seconds.toLocaleString("de-DE", { maximumFractionDigits: 1 })} s`;
+  elements.printerMonitoringSummary.textContent = `${intervalMs.toLocaleString(locale())} ms · ${seconds.toLocaleString(locale(), { maximumFractionDigits: 1 })} s`;
   elements.printerMonitoringForm.elements.statusFlushIntervalMs.value = intervalMs;
+}
+
+function renderLanguageSettings() {
+  if (!elements.languageForm) {
+    return;
+  }
+  elements.languageSummary.textContent = language() === "en" ? "English" : "Deutsch";
+  elements.languageForm.elements.language.value = language();
 }
 
 function userById(id) {
@@ -1097,7 +1686,7 @@ function userById(id) {
 function openEditUserModal(id) {
   const user = userById(id);
   if (!user) {
-    showToast("User wurde nicht gefunden.", "error");
+    showToast(t("message.notFoundUser"), "error");
     return;
   }
 
@@ -1123,24 +1712,24 @@ async function updateUser(form) {
 
   const body = await response.json();
   if (!response.ok) {
-    throw new Error(body.error || "User konnte nicht gespeichert werden.");
+    throw new Error(body.error || t("message.savedGenericError"));
   }
 
   state.data = body;
   closeModalFromElement(form);
   render();
-  showToast("User wurde aktualisiert.");
+  showToast(t("message.updatedUser"));
 }
 
 async function deleteUser(id) {
   const user = userById(id);
-  const label = user ? `${user.name} (${user.email})` : "diesen User";
+  const label = user ? `${user.name} (${user.email})` : t("settings.users");
 
-  if (!window.confirm(`${label} wirklich löschen?`)) {
+  if (!window.confirm(`${label} ${t("message.deleteConfirm")}`)) {
     return;
   }
 
-  if (!window.confirm("Diese Aktion kann nicht rückgängig gemacht werden. User endgültig löschen?")) {
+  if (!window.confirm(t("message.deleteFinalUser"))) {
     return;
   }
 
@@ -1150,16 +1739,17 @@ async function deleteUser(id) {
 
   const body = await response.json();
   if (!response.ok) {
-    throw new Error(body.error || "User konnte nicht gelöscht werden.");
+    throw new Error(body.error || t("message.savedGenericError"));
   }
 
   state.data = body;
   render();
-  showToast("User wurde gelöscht.");
+  showToast(t("message.deletedUser"));
 }
 
 function render() {
   elements.appVersion.textContent = `v${state.data.version}`;
+  applyTranslations();
   renderOverview();
   renderMaterials();
   renderStorage();
@@ -1169,6 +1759,7 @@ function render() {
   renderTrafficLightSettings();
   renderPrinterMonitoringSettings();
   renderMaintenanceTaskSettings();
+  renderLanguageSettings();
   applyPermissions();
 }
 
@@ -1177,13 +1768,14 @@ async function loadData() {
     const response = await fetch("/api/app-data");
     if (response.status === 401) {
       showLogin();
-      showToast("Bitte erneut anmelden.", "warn");
+      showToast(t("message.loginNeeded"), "warn");
       return;
     }
     if (!response.ok) {
-      throw new Error("App-Daten konnten nicht geladen werden.");
+      throw new Error(language() === "en" ? "App data could not be loaded." : "App-Daten konnten nicht geladen werden.");
     }
     state.data = await response.json();
+    window.localStorage.setItem("pfa_language", language());
     if (state.data.currentUser) {
       showApp(state.data.currentUser);
     }
@@ -1223,7 +1815,7 @@ async function checkSession() {
     await loadData();
   } catch (error) {
     showLogin();
-    showToast("Sitzung konnte nicht geprüft werden.", "error");
+    showToast(language() === "en" ? "Session could not be checked." : "Sitzung konnte nicht geprüft werden.", "error");
   }
 }
 
@@ -1237,18 +1829,18 @@ async function loginUser(form) {
 
   const body = await response.json();
   if (!response.ok) {
-    throw new Error(body.error || "Anmeldung fehlgeschlagen.");
+    throw new Error(body.error || (language() === "en" ? "Login failed." : "Anmeldung fehlgeschlagen."));
   }
 
   showApp(body.user);
   setView("overview");
   connectPrinterEvents();
   await loadData();
-  showToast("Angemeldet.");
+  showToast(t("message.loginOk"));
 }
 
 async function logoutUser() {
-  if (!window.confirm("Wirklich abmelden?")) {
+  if (!window.confirm(t("message.logoutConfirm"))) {
     return;
   }
 
@@ -1258,13 +1850,13 @@ async function logoutUser() {
 
   if (!response.ok) {
     const body = await response.json();
-    throw new Error(body.error || "Abmelden fehlgeschlagen.");
+    throw new Error(body.error || (language() === "en" ? "Logout failed." : "Abmelden fehlgeschlagen."));
   }
 
   showLogin();
   state.printerEvents?.close();
   state.printerEvents = null;
-  showToast("Abgemeldet.");
+  showToast(t("message.logoutOk"));
 }
 
 async function submitForm(form, endpoint, successMessage) {
@@ -1277,7 +1869,7 @@ async function submitForm(form, endpoint, successMessage) {
 
   const body = await response.json();
   if (!response.ok) {
-    throw new Error(body.error || "Speichern fehlgeschlagen.");
+    throw new Error(body.error || t("message.savedGenericError"));
   }
 
   state.data = body;
@@ -1297,12 +1889,12 @@ async function updateTrafficLightSettings(form) {
 
   const body = await response.json();
   if (!response.ok) {
-    throw new Error(body.error || "Ampel konnte nicht gespeichert werden.");
+    throw new Error(body.error || t("message.savedGenericError"));
   }
 
   state.data = body;
   render();
-  showToast("Ampel-Einstellungen wurden gespeichert.");
+  showToast(t("message.trafficSaved"));
 }
 
 async function updatePrinterMonitoringSettings(form) {
@@ -1315,12 +1907,31 @@ async function updatePrinterMonitoringSettings(form) {
 
   const body = await response.json();
   if (!response.ok) {
-    throw new Error(body.error || "Monitoring konnte nicht gespeichert werden.");
+    throw new Error(body.error || t("message.savedGenericError"));
   }
 
   state.data = body;
   render();
-  showToast("Monitoring-Einstellungen wurden gespeichert.");
+  showToast(t("message.monitoringSaved"));
+}
+
+async function updateLanguageSettings(form) {
+  const payload = Object.fromEntries(new FormData(form));
+  const response = await fetch("/api/settings/language", {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(payload)
+  });
+
+  const body = await response.json();
+  if (!response.ok) {
+    throw new Error(body.error || t("message.savedGenericError"));
+  }
+
+  state.data = body;
+  window.localStorage.setItem("pfa_language", language());
+  render();
+  showToast(t("message.languageSaved"));
 }
 
 async function createMaintenanceTask(form) {
@@ -1333,33 +1944,33 @@ async function createMaintenanceTask(form) {
 
   const body = await response.json();
   if (!response.ok) {
-    throw new Error(body.error || "Wartungsart konnte nicht gespeichert werden.");
+    throw new Error(body.error || t("message.savedGenericError"));
   }
 
   state.data = body;
   form.reset();
   render();
-  showToast("Wartungsart wurde gespeichert.");
+  showToast(t("message.maintenanceTypeSaved"));
 }
 
 async function updateMaintenanceTask(id) {
   const task = maintenanceTaskById(id);
   if (!task) {
-    showToast("Wartungsart wurde nicht gefunden.", "error");
+    showToast(t("message.notFoundMaintenance"), "error");
     return;
   }
 
-  const name = window.prompt("Wartungsart bearbeiten", task.name);
+  const name = window.prompt(t("prompt.maintenanceEdit"), task.name);
   if (name === null) {
     return;
   }
 
-  const description = window.prompt("Notiz bearbeiten", task.description || "");
+  const description = window.prompt(t("prompt.noteEdit"), task.description || "");
   if (description === null) {
     return;
   }
 
-  const dueAfterHours = window.prompt("Fällig nach Betriebsstunden", task.dueAfterHours || 0);
+  const dueAfterHours = window.prompt(t("prompt.dueHours"), task.dueAfterHours || 0);
   if (dueAfterHours === null) {
     return;
   }
@@ -1372,19 +1983,21 @@ async function updateMaintenanceTask(id) {
 
   const body = await response.json();
   if (!response.ok) {
-    throw new Error(body.error || "Wartungsart konnte nicht gespeichert werden.");
+    throw new Error(body.error || t("message.savedGenericError"));
   }
 
   state.data = body;
   render();
-  showToast("Wartungsart wurde aktualisiert.");
+  showToast(t("message.maintenanceTypeUpdated"));
 }
 
 async function deleteMaintenanceTask(id) {
   const task = maintenanceTaskById(id);
-  const label = task ? task.name : "diese Wartungsart";
+  const label = task ? task.name : t("settings.maintenance");
 
-  if (!window.confirm(`${label} aus den verfügbaren Wartungen entfernen? Vorhandene Historie bleibt erhalten.`)) {
+  if (!window.confirm(language() === "en"
+    ? `Remove ${label} from the available maintenance types? Existing history remains available.`
+    : `${label} aus den verfügbaren Wartungen entfernen? Vorhandene Historie bleibt erhalten.`)) {
     return;
   }
 
@@ -1394,12 +2007,12 @@ async function deleteMaintenanceTask(id) {
 
   const body = await response.json();
   if (!response.ok) {
-    throw new Error(body.error || "Wartungsart konnte nicht entfernt werden.");
+    throw new Error(body.error || t("message.savedGenericError"));
   }
 
   state.data = body;
   render();
-  showToast("Wartungsart wurde entfernt.");
+  showToast(t("message.maintenanceTypeRemoved"));
 }
 
 async function createMaintenanceRecord(form) {
@@ -1415,7 +2028,7 @@ async function createMaintenanceRecord(form) {
 
   const body = await response.json();
   if (!response.ok) {
-    throw new Error(body.error || "Wartung konnte nicht gespeichert werden.");
+    throw new Error(body.error || t("message.savedGenericError"));
   }
 
   state.data = body;
@@ -1425,7 +2038,7 @@ async function createMaintenanceRecord(form) {
   elements.maintenanceTaskSelect.innerHTML = maintenanceTaskOptions();
   renderMaintenanceHistory(printerId);
   render();
-  showToast("Wartung wurde dokumentiert.");
+  showToast(t("message.maintenanceSaved"));
 }
 
 document.querySelectorAll(".nav-tab[data-view]").forEach((button) => {
@@ -1616,7 +2229,7 @@ document.addEventListener("click", async (event) => {
 document.querySelector("#material-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
-    await submitForm(event.currentTarget, "/api/materials", "Material wurde gespeichert.");
+    await submitForm(event.currentTarget, "/api/materials", t("message.savedMaterial"));
   } catch (error) {
     showToast(error.message, "error");
   }
@@ -1684,7 +2297,7 @@ document.querySelector("#quantity-form").addEventListener("submit", async (event
 document.querySelector("#storage-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
-    await submitForm(event.currentTarget, "/api/storage-locations", "Lagerplatz wurde gespeichert.");
+    await submitForm(event.currentTarget, "/api/storage-locations", language() === "en" ? "Storage location was saved." : "Lagerplatz wurde gespeichert.");
   } catch (error) {
     showToast(error.message, "error");
   }
@@ -1711,7 +2324,7 @@ document.querySelector("#maintenance-form").addEventListener("submit", async (ev
 document.querySelector("#printer-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
-    await submitForm(event.currentTarget, "/api/printers", "Drucker wurde gespeichert.");
+    await submitForm(event.currentTarget, "/api/printers", language() === "en" ? "Printer was saved." : "Drucker wurde gespeichert.");
     connectPrinterEvents();
   } catch (error) {
     showToast(error.message, "error");
@@ -1731,7 +2344,7 @@ document.querySelector("#printer-edit-form").addEventListener("submit", async (e
 document.querySelector("#user-form").addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
-    await submitForm(event.currentTarget, "/api/users", "User wurde gespeichert.");
+    await submitForm(event.currentTarget, "/api/users", language() === "en" ? "User was saved." : "User wurde gespeichert.");
   } catch (error) {
     showToast(error.message, "error");
   }
@@ -1759,6 +2372,15 @@ elements.printerMonitoringForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   try {
     await updatePrinterMonitoringSettings(event.currentTarget);
+  } catch (error) {
+    showToast(error.message, "error");
+  }
+});
+
+elements.languageForm.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  try {
+    await updateLanguageSettings(event.currentTarget);
   } catch (error) {
     showToast(error.message, "error");
   }

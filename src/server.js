@@ -33,6 +33,7 @@ const DEFAULT_TRAFFIC_LIGHT_SETTINGS = {
 const DEFAULT_PRINTER_MONITORING_SETTINGS = {
   statusFlushIntervalMs: 5000
 };
+const DEFAULT_LANGUAGE = "de";
 
 function normalizeMaintenanceTaskPayload(payload) {
   const dueAfterHours = Number.parseInt(String(payload.dueAfterHours ?? payload.due_after_hours ?? ""), 10);
@@ -90,6 +91,11 @@ function normalizePrinterMonitoringSettings(payload) {
       ? Math.min(60000, Math.max(1000, interval))
       : DEFAULT_PRINTER_MONITORING_SETTINGS.statusFlushIntervalMs
   };
+}
+
+function normalizeLanguage(payload) {
+  const language = String(payload.language || "").trim().toLowerCase();
+  return ["de", "en"].includes(language) ? language : DEFAULT_LANGUAGE;
 }
 
 function normalizePrinterPayload(payload, existingPrinter = {}) {
@@ -638,7 +644,7 @@ async function getAppData(currentUser = null) {
     db.query(`
       SELECT key, value
       FROM app_settings
-      WHERE key IN ('traffic_light_red_grams', 'traffic_light_threshold_grams', 'printer_status_flush_interval_ms');
+      WHERE key IN ('traffic_light_red_grams', 'traffic_light_threshold_grams', 'printer_status_flush_interval_ms', 'app_language');
     `)
   ]);
   const settings = Object.fromEntries(settingsRows.map((row) => [row.key, row.value]));
@@ -666,6 +672,7 @@ async function getAppData(currentUser = null) {
     maintenanceRecords,
     trafficLight,
     printerMonitoring,
+    language: ["de", "en"].includes(settings.app_language) ? settings.app_language : DEFAULT_LANGUAGE,
     users: currentUser?.role === "admin" ? users : []
   };
 }
@@ -992,6 +999,21 @@ async function updatePrinterMonitoringSettings(payload, currentUser) {
   `);
 
   bambuCollector?.setStatusFlushIntervalMs(settings.statusFlushIntervalMs);
+  return { ok: true, statusCode: 200, data: await getAppData(currentUser) };
+}
+
+async function updateLanguageSettings(payload, currentUser) {
+  const db = await getDb();
+  const language = normalizeLanguage(payload);
+
+  await db.exec(`
+    INSERT INTO app_settings (key, value, updated_at)
+    VALUES ('app_language', ${quoteSql(language)}, datetime('now'))
+    ON CONFLICT(key) DO UPDATE SET
+      value = excluded.value,
+      updated_at = datetime('now');
+  `);
+
   return { ok: true, statusCode: 200, data: await getAppData(currentUser) };
 }
 
@@ -1575,6 +1597,15 @@ async function handleRequest(request, response) {
       return;
     }
     const result = await updatePrinterMonitoringSettings(await readJsonBody(request), currentUser);
+    sendJson(response, result.statusCode, result.ok ? result.data : { error: result.error });
+    return;
+  }
+
+  if (url.pathname === "/api/settings/language" && request.method === "PATCH") {
+    if (!requireAdmin(currentUser, response)) {
+      return;
+    }
+    const result = await updateLanguageSettings(await readJsonBody(request), currentUser);
     sendJson(response, result.statusCode, result.ok ? result.data : { error: result.error });
     return;
   }

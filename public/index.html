@@ -123,6 +123,7 @@
           <button class="settings-subtab" type="button" data-settings-tab="materials">Material-Ampel</button>
           <button class="settings-subtab" type="button" data-settings-tab="monitoring">Drucker-Monitoring</button>
           <button class="settings-subtab" type="button" data-settings-tab="maintenance">Wartungsarten</button>
+          <button class="settings-subtab" type="button" data-settings-tab="language">Sprache</button>
         </div>
 
         <section class="details admin-only settings-panel active" data-settings-panel="users">
@@ -251,10 +252,28 @@
             </table>
           </div>
         </section>
+
+        <section class="details admin-only settings-panel" data-settings-panel="language">
+          <div class="details-heading">
+            <h2>Sprache</h2>
+            <span id="language-summary"></span>
+          </div>
+          <form class="settings-box" id="language-form">
+            <label>
+              Sprache
+              <select name="language">
+                <option value="de">Deutsch</option>
+                <option value="en">English</option>
+              </select>
+            </label>
+            <button type="submit">Sprache speichern</button>
+          </form>
+        </section>
       </section>
 
       <footer class="app-footer">
         <span>Printer Farm Admin</span>
+        <span>by Adam Wesolowski · AGPL-3.0-or-later</span>
         <span id="app-version">v0.0.25a</span>
       </footer>
     </main>
