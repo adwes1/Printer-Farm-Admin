@@ -517,6 +517,32 @@ td span,
   text-align: center;
 }
 
+.overview-printer-project-name {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overview-printer-material {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 800;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .overview-printer-progress-meta {
   justify-content: center;
   color: var(--muted);
@@ -728,6 +754,7 @@ td span,
     "header header"
     "metrics preview"
     "flags preview"
+    "project project"
     "progressMeta progressMeta"
     "progress progress"
     "actions actions"
@@ -820,8 +847,11 @@ td span,
 }
 
 .print-project-name {
+  grid-area: project;
   overflow: hidden;
   color: var(--text);
+  font-size: 0.82rem;
+  text-align: center;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -888,6 +918,32 @@ td span,
   color: var(--text);
   font-size: 0.76rem;
   white-space: nowrap;
+}
+
+.material-inline {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  min-width: 0;
+  max-width: 100%;
+  vertical-align: middle;
+}
+
+.material-inline span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.material-swatch {
+  flex: 0 0 auto;
+  width: 0.72rem;
+  height: 0.72rem;
+  border: 1px solid rgba(209, 214, 232, 0.7);
+  border-radius: 50%;
+  background: var(--material-color, var(--muted));
 }
 
 .printer-progress-meta {
@@ -1278,6 +1334,7 @@ td span,
       "preview"
       "metrics"
       "flags"
+      "project"
       "progressMeta"
       "progress"
       "actions"

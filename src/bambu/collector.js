@@ -23,6 +23,40 @@ function printerConnectionChanged(previous, next) {
     previous.accessCode !== next.accessCode;
 }
 
+function cleanPreviewPath(value) {
+  const text = String(value || "").replace(/[\r\n]/g, "").trim();
+  return text || null;
+}
+
+function unique(values) {
+  return [...new Set(values.filter(Boolean))];
+}
+
+export function previewLookupPaths(status = {}) {
+  const candidates = [];
+  for (const value of [status.currentFile, status.subtaskName]) {
+    const path = cleanPreviewPath(value);
+    if (!path) {
+      continue;
+    }
+    candidates.push(path);
+    if (!/[./\\][^/\\]+$/i.test(path) && !/\.[a-z0-9]+$/i.test(path)) {
+      candidates.push(`${path}.3mf`);
+    }
+  }
+  return unique(candidates);
+}
+
+function statusLooksActive(status = {}) {
+  return ["running", "printing", "pause"].includes(String(status.state || "").toLowerCase()) ||
+    (status.progressPercent > 0 && status.progressPercent < 100) ||
+    status.remainingMinutes > 0 ||
+    status.nozzleTemp > 100 ||
+    status.nozzleTargetTemp > 100 ||
+    status.bedTemp > 40 ||
+    status.bedTargetTemp > 40;
+}
+
 export class BambuCollector {
   constructor({ loadPrinters, saveStatus, saveEvent, resolvePreview, broadcast, statusFlushIntervalMs = DEFAULT_STATUS_FLUSH_INTERVAL_MS }) {
     this.loadPrinters = loadPrinters;
@@ -116,6 +150,7 @@ export class BambuCollector {
       hasMessage: false,
       isFlushing: false,
       lastFlushAt: 0,
+      lastSnapshotRequestAt: 0,
       pendingStatus: null
     };
     this.connections.set(key, connection);
@@ -150,6 +185,10 @@ export class BambuCollector {
       this.scheduleStatusFlush(connection);
     });
 
+    subscriber.on("subscribed", () => {
+      this.requestStatusSnapshot(connection);
+    });
+
     subscriber.on("error", (error) => {
       const authHint = /auth|connect fehlgeschlagen/i.test(error.message) ? "Authentifizierungsfehler" : "Verbindungsfehler";
       console.warn(`Bambu MQTT ${authHint} bei ${printer.name}: ${error.message}`);
@@ -168,6 +207,16 @@ export class BambuCollector {
     });
 
     subscriber.connect();
+  }
+
+  requestStatusSnapshot(connection) {
+    const now = Date.now();
+    if (connection.lastSnapshotRequestAt && now - connection.lastSnapshotRequestAt < 60000) {
+      return;
+    }
+    if (connection.subscriber.requestStatusSnapshot()) {
+      connection.lastSnapshotRequestAt = now;
+    }
   }
 
   scheduleStatusFlush(connection) {
@@ -195,8 +244,8 @@ export class BambuCollector {
     connection.pendingStatus = null;
 
     try {
-      await this.saveStatus(connection.printer.id, status);
-      this.maybeResolvePreview(connection, status).catch((error) => {
+      const savedStatus = await this.saveStatus(connection.printer.id, status);
+      this.maybeResolvePreview(connection, savedStatus || status).catch((error) => {
         console.warn(`Bambu Datei-Cache konnte fuer ${connection.printer.name} nicht gelesen werden: ${error.message}`);
       });
       connection.lastFlushAt = Date.now();
@@ -214,9 +263,12 @@ export class BambuCollector {
     if (!this.resolvePreview || !connection.printer.enableFileCacheLookup || !status.online) {
       return;
     }
-    const filePath = status.currentFile || status.subtaskName;
-    if (!filePath || !String(filePath).includes("/")) {
+    const filePaths = previewLookupPaths(status);
+    if (filePaths.length === 0 && !statusLooksActive(status)) {
       return;
+    }
+    if (filePaths.length === 0) {
+      this.requestStatusSnapshot(connection);
     }
     if (connection.previewLookupRunning) {
       return;
@@ -227,10 +279,13 @@ export class BambuCollector {
     }
     connection.previewLookupRunning = true;
     try {
-      const updated = await this.resolvePreview(connection.printer, filePath, status);
       connection.lastPreviewLookupAt = Date.now();
-      if (updated) {
-        this.broadcast({ type: "printer-status", printerId: connection.printer.id });
+      for (const filePath of filePaths.length ? filePaths : [null]) {
+        const updated = await this.resolvePreview(connection.printer, filePath, status);
+        if (updated) {
+          this.broadcast({ type: "printer-status", printerId: connection.printer.id });
+          return;
+        }
       }
     } finally {
       connection.previewLookupRunning = false;

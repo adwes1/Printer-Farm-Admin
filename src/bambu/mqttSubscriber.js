@@ -50,6 +50,13 @@ function subscribePacket(packetId, topic) {
   return packet(0x82, Buffer.concat([variableHeader, payload]));
 }
 
+function publishPacket(topic, message) {
+  return packet(0x30, Buffer.concat([
+    encodeString(topic),
+    Buffer.from(String(message), "utf8")
+  ]));
+}
+
 function parseRemainingLength(buffer, offset) {
   let multiplier = 1;
   let value = 0;
@@ -121,6 +128,7 @@ export class BambuMqttSubscriber extends EventEmitter {
     this.accessCode = accessCode;
     this.timeoutMs = timeoutMs;
     this.topic = `device/${serialNumber}/report`;
+    this.requestTopic = `device/${serialNumber}/request`;
     this.socket = null;
     this.buffer = Buffer.alloc(0);
     this.packetId = 1;
@@ -163,6 +171,23 @@ export class BambuMqttSubscriber extends EventEmitter {
       this.socket.destroy();
       this.socket = null;
     }
+  }
+
+  publishJson(payload) {
+    if (!this.socket || this.socket.destroyed) {
+      return false;
+    }
+    this.socket.write(publishPacket(this.requestTopic, JSON.stringify(payload)));
+    return true;
+  }
+
+  requestStatusSnapshot() {
+    return this.publishJson({
+      pushing: {
+        sequence_id: String(Date.now()),
+        command: "pushall"
+      }
+    });
   }
 
   handleData(chunk) {

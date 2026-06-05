@@ -5,7 +5,7 @@ import { randomBytes } from "node:crypto";
 import path from "node:path";
 import { hashPassword, verifyPassword } from "./auth/passwords.js";
 import { config } from "./config.js";
-import { readBambuPreview } from "./bambu/fileCache.js";
+import { readBambuPreviewResult } from "./bambu/fileCache.js";
 import { mergeBambuStatus } from "./bambu/normalizer.js";
 import { BambuCollector, testBambuConnection } from "./bambu/collector.js";
 import { bootstrapApp } from "./db/bootstrap.js";
@@ -117,7 +117,7 @@ function normalizePrinterPayload(payload, existingPrinter = {}) {
     name: String(payload.name || "").trim(),
     model,
     ipAddress: String(payload.ipAddress || payload.ip_address || "").trim(),
-    serialNumber: String(payload.serialNumber || payload.serial_number || "").trim(),
+    serialNumber: String(payload.serialNumber || payload.serial_number || "").trim().toUpperCase(),
     accessCode: accessCode || existingPrinter.accessCode || "",
     hasAms: hasAms ? 1 : 0,
     location: String(payload.location || "").trim(),
@@ -147,6 +147,17 @@ function parseSqliteDate(value) {
 
 function isPrintingState(state) {
   return ["running", "printing", "pause"].includes(String(state || "").toLowerCase());
+}
+
+function hasActivePrintTelemetry(status = {}) {
+  return isPrintingState(status.state) ||
+    (status.progressPercent > 0 && status.progressPercent < 100) ||
+    status.remainingMinutes > 0 ||
+    status.currentLayer > 0 ||
+    status.nozzleTemp > 100 ||
+    status.nozzleTargetTemp > 100 ||
+    status.bedTemp > 40 ||
+    status.bedTargetTemp > 40;
 }
 
 function parseCookies(request) {
@@ -246,7 +257,31 @@ function canShowPrinterPreview(row) {
   return Boolean(row.online && row.previewPath && ["running", "printing", "pause"].includes(row.state));
 }
 
+function projectNameFromPath(value) {
+  const basename = String(value || "")
+    .replaceAll("\\", "/")
+    .split("/")
+    .filter(Boolean)
+    .at(-1);
+  if (!basename) {
+    return null;
+  }
+  const cleaned = basename
+    .replace(/\.gcode\.3mf$/i, "")
+    .replace(/\.3mf$/i, "")
+    .replace(/\.gcode$/i, "")
+    .replace(/\.png$/i, "")
+    .replace(/(?:\s*-\s*Plate\s*|_plate_)\d+$/i, "")
+    .replace(/[_-]+$/g, "")
+    .trim();
+
+  return /^plate_\d+$/i.test(cleaned) || /^top_\d+$/i.test(cleaned) ? null : cleaned || null;
+}
+
 function mapPrinter(row, includeSecret = false) {
+  const projectName = projectNameFromPath(row.currentFile) ||
+    projectNameFromPath(row.subtaskName) ||
+    (canShowPrinterPreview(row) ? projectNameFromPath(row.previewSourcePath) : null);
   const printer = {
     id: row.id,
     name: row.name,
@@ -256,6 +291,7 @@ function mapPrinter(row, includeSecret = false) {
     hasAms: Boolean(row.hasAms),
     enableFileCacheLookup: Boolean(row.enableFileCacheLookup),
     previewImageUrl: canShowPrinterPreview(row) ? `/api/printers/${row.id}/preview?ts=${encodeURIComponent(row.previewUpdatedAt || "")}` : null,
+    projectName,
     location: row.location || "",
     operatingHours: Number(row.operatingSeconds || 0) / 3600,
     isActive: Boolean(row.isActive),
@@ -276,6 +312,8 @@ function mapPrinter(row, includeSecret = false) {
       totalLayers: row.totalLayers,
       currentFile: row.currentFile,
       subtaskName: row.subtaskName,
+      projectName,
+      currentMaterialJson: row.currentMaterialJson,
       amsStatusJson: row.amsStatusJson,
       hmsErrorsJson: row.hmsErrorsJson,
       receivedAt: row.receivedAt
@@ -321,10 +359,12 @@ async function listPrinters({ includeInactive = false, includeSecret = false } =
       latest_status.total_layers AS totalLayers,
       latest_status.current_file AS currentFile,
       latest_status.subtask_name AS subtaskName,
+      latest_status.current_material_json AS currentMaterialJson,
       latest_status.ams_status_json AS amsStatusJson,
       latest_status.hms_errors_json AS hmsErrorsJson,
       latest_status.received_at AS receivedAt,
       file_cache.preview_path AS previewPath,
+      file_cache.source_path AS previewSourcePath,
       file_cache.updated_at AS previewUpdatedAt
     FROM printers
     ${latestStatusJoin()}
@@ -371,10 +411,12 @@ async function getPrinterById(id, includeSecret = false) {
       latest_status.total_layers AS totalLayers,
       latest_status.current_file AS currentFile,
       latest_status.subtask_name AS subtaskName,
+      latest_status.current_material_json AS currentMaterialJson,
       latest_status.ams_status_json AS amsStatusJson,
       latest_status.hms_errors_json AS hmsErrorsJson,
       latest_status.received_at AS receivedAt,
       file_cache.preview_path AS previewPath,
+      file_cache.source_path AS previewSourcePath,
       file_cache.updated_at AS previewUpdatedAt
     FROM printers
     ${latestStatusJoin()}
@@ -466,6 +508,7 @@ async function getLatestPrinterStatus(printerId) {
       total_layers AS totalLayers,
       current_file AS currentFile,
       subtask_name AS subtaskName,
+      current_material_json AS currentMaterialJson,
       ams_status_json AS amsStatusJson,
       hms_errors_json AS hmsErrorsJson,
       received_at AS receivedAt
@@ -478,10 +521,50 @@ async function getLatestPrinterStatus(printerId) {
   return rows[0] ? { ...rows[0], online: Boolean(rows[0].online) } : null;
 }
 
+async function getLastKnownPrinterFileStatus(printerId) {
+  const db = await getDb();
+  const rows = await db.query(`
+    SELECT
+      state,
+      progress_percent AS progressPercent,
+      current_layer AS currentLayer,
+      total_layers AS totalLayers,
+      current_file AS currentFile,
+      subtask_name AS subtaskName,
+      received_at AS receivedAt
+    FROM printer_status
+    WHERE printer_id = ${Number.parseInt(printerId, 10)}
+      AND online = 1
+      AND (current_file IS NOT NULL OR subtask_name IS NOT NULL)
+      AND received_at >= datetime('now', '-12 hours')
+    ORDER BY received_at DESC, id DESC
+    LIMIT 1;
+  `);
+
+  return rows[0] || null;
+}
+
 async function savePrinterStatus(printerId, status) {
   const db = await getDb();
   const latestStatus = status.online ? await getLatestPrinterStatus(printerId) : null;
-  const mergedStatus = status.online && latestStatus?.online ? mergeBambuStatus(latestStatus, status) : status;
+  let mergedStatus = status.online && latestStatus?.online ? mergeBambuStatus(latestStatus, status) : status;
+  if (
+    mergedStatus.online &&
+    hasActivePrintTelemetry(mergedStatus) &&
+    !mergedStatus.currentFile &&
+    !mergedStatus.subtaskName
+  ) {
+    const lastFileStatus = await getLastKnownPrinterFileStatus(printerId);
+    if (lastFileStatus) {
+      mergedStatus = {
+        ...mergedStatus,
+        state: isPrintingState(mergedStatus.state) ? mergedStatus.state : "running",
+        currentFile: lastFileStatus.currentFile || null,
+        subtaskName: lastFileStatus.subtaskName || null,
+        totalLayers: mergedStatus.totalLayers ?? lastFileStatus.totalLayers ?? null
+      };
+    }
+  }
   const rawJson = await shouldStoreRawPayloads() ? status.rawJson : null;
   const latestReceivedAt = parseSqliteDate(latestStatus?.receivedAt);
   const onlineSeconds = mergedStatus.online && latestStatus?.online && isPrintingState(latestStatus.state) && latestReceivedAt
@@ -511,6 +594,7 @@ async function savePrinterStatus(printerId, status) {
       total_layers,
       current_file,
       subtask_name,
+      current_material_json,
       ams_status_json,
       hms_errors_json,
       raw_json,
@@ -531,12 +615,14 @@ async function savePrinterStatus(printerId, status) {
       ${mergedStatus.totalLayers === null ? "NULL" : numberSql(mergedStatus.totalLayers)},
       ${quoteSql(mergedStatus.currentFile)},
       ${quoteSql(mergedStatus.subtaskName)},
+      ${quoteSql(mergedStatus.currentMaterialJson)},
       ${quoteSql(mergedStatus.amsStatusJson)},
       ${quoteSql(mergedStatus.hmsErrorsJson)},
       ${quoteSql(rawJson)},
       datetime('now')
     );
   `);
+  return mergedStatus;
 }
 
 async function savePrinterEvent(printerId, eventType, message, severity = "info", rawJson = null) {
@@ -554,8 +640,8 @@ async function savePrinterEvent(printerId, eventType, message, severity = "info"
 }
 
 async function resolvePrinterPreview(printer, filePath, status = {}) {
-  const image = await readBambuPreview({ printer, filePath, status });
-  if (!image) {
+  const result = await readBambuPreviewResult({ printer, filePath, status });
+  if (!result?.image) {
     const db = await getDb();
     await db.exec(`
       DELETE FROM printer_file_cache
@@ -566,11 +652,12 @@ async function resolvePrinterPreview(printer, filePath, status = {}) {
   const previewsDir = path.join(path.dirname(config.dbPath), "previews");
   await mkdir(previewsDir, { recursive: true });
   const previewPath = path.join(previewsDir, `printer-${printer.id}.png`);
-  await writeFile(previewPath, image);
+  await writeFile(previewPath, result.image);
+  const sourcePath = result.sourcePath || filePath || "";
   const db = await getDb();
   await db.exec(`
     INSERT INTO printer_file_cache (printer_id, source_path, preview_path, updated_at)
-    VALUES (${Number.parseInt(printer.id, 10)}, ${quoteSql(filePath)}, ${quoteSql(previewPath)}, datetime('now'))
+    VALUES (${Number.parseInt(printer.id, 10)}, ${quoteSql(sourcePath)}, ${quoteSql(previewPath)}, datetime('now'))
     ON CONFLICT(printer_id) DO UPDATE SET
       source_path = excluded.source_path,
       preview_path = excluded.preview_path,

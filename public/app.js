@@ -210,6 +210,7 @@ const I18N = {
     "misc.history": "Historie",
     "misc.details": "Details öffnen",
     "misc.fileCache": "Datei-Cache",
+    "misc.material": "Material",
     "misc.nozzle": "Nozzle",
     "misc.hours": "Stunden",
     "misc.progress": "Fortschritt",
@@ -393,6 +394,7 @@ const I18N = {
     "misc.history": "History",
     "misc.details": "Open details",
     "misc.fileCache": "File Cache",
+    "misc.material": "Material",
     "misc.nozzle": "Nozzle",
     "misc.hours": "Hours",
     "misc.progress": "Progress",
@@ -830,8 +832,69 @@ function maintenanceDueLabel(task, record, printer) {
   return `${t("misc.in")} ${Math.ceil(remainingHours).toLocaleString(locale())} h`;
 }
 
-function printProjectName(status) {
-  return status.currentFile || status.subtaskName || t("misc.currentProjectMissing");
+function printProjectName(status, printer = {}) {
+  return status.projectName ||
+    printer.projectName ||
+    status.currentFile ||
+    status.subtaskName ||
+    t("misc.currentProjectMissing");
+}
+
+function parseJsonObject(value) {
+  if (!value) {
+    return null;
+  }
+  if (typeof value === "object" && !Array.isArray(value)) {
+    return value;
+  }
+  try {
+    const parsed = JSON.parse(value);
+    return parsed && typeof parsed === "object" && !Array.isArray(parsed) ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function materialColorStyle(value) {
+  const text = String(value || "").trim();
+  return /^#[0-9A-F]{6}$/i.test(text) ? ` style="--material-color: ${escapeHtml(text)}"` : "";
+}
+
+function printMaterial(status = {}) {
+  const material = parseJsonObject(status.currentMaterialJson);
+  if (!material) {
+    return null;
+  }
+
+  const parts = [
+    material.name,
+    material.brand,
+    material.type
+  ]
+    .map((part) => String(part || "").trim())
+    .filter(Boolean);
+
+  const uniqueParts = [...new Set(parts)];
+  if (!uniqueParts.length && !material.colorHex) {
+    return null;
+  }
+
+  return {
+    label: uniqueParts.join(" · ") || t("misc.material"),
+    colorHex: material.colorHex || null
+  };
+}
+
+function printMaterialHtml(status = {}) {
+  const material = printMaterial(status);
+  if (!material) {
+    return "–";
+  }
+
+  const color = material.colorHex
+    ? `<span class="material-swatch"${materialColorStyle(material.colorHex)}></span>`
+    : "";
+  return `<span class="material-inline">${color}<span>${escapeHtml(material.label)}</span></span>`;
 }
 
 function materialManufacturer(material) {
@@ -1127,7 +1190,7 @@ function renderOverview() {
       const stateName = printerDisplayState(printer);
       const progressWidth = Math.max(0, Math.min(100, Number(status.progressPercent || 0)));
       const preview = printer.previewImageUrl
-        ? `<img class="overview-printer-preview-image" src="${escapeHtml(printer.previewImageUrl)}" alt="${escapeHtml(printProjectName(status))}">`
+        ? `<img class="overview-printer-preview-image" src="${escapeHtml(printer.previewImageUrl)}" alt="${escapeHtml(printProjectName(status, printer))}">`
         : `<div class="overview-printer-preview-placeholder">${t("empty.noPreview")}</div>`;
       return `
         <article class="overview-printer-card" data-overview-printer="${printer.id}" tabindex="0" role="button" aria-label="${escapeHtml(`${printer.name} ${t("misc.details")}`)}">
@@ -1141,6 +1204,8 @@ function renderOverview() {
           <div class="overview-printer-preview">
             ${preview}
           </div>
+          <div class="overview-printer-project-name">${escapeHtml(printProjectName(status, printer))}</div>
+          <div class="overview-printer-material">${t("misc.material")} ${printMaterialHtml(status)}</div>
           <div class="overview-printer-progress-meta">
             <span>${t("misc.progress")} ${displayValue(status.progressPercent, " %")}</span>
             <span>${t("misc.remaining")} ${displayValue(status.remainingMinutes, " min")}</span>
@@ -1161,7 +1226,7 @@ function renderPrinterDetailCard(printer, { actions = true } = {}) {
   const hasErrors = Boolean(status.hmsErrorsJson && status.hmsErrorsJson !== "{}" && status.hmsErrorsJson !== "[]");
   const progressWidth = printerOnline(printer) ? Math.max(0, Math.min(100, Number(status.progressPercent || 0))) : 0;
   const preview = printer.previewImageUrl && printerOnline(printer)
-    ? `<img class="print-preview-image" src="${escapeHtml(printer.previewImageUrl)}" alt="${escapeHtml(printProjectName(status))}">`
+    ? `<img class="print-preview-image" src="${escapeHtml(printer.previewImageUrl)}" alt="${escapeHtml(printProjectName(status, printer))}">`
         : `<div class="print-preview-placeholder">${t("empty.noPreview")}</div>`;
 
   return `
@@ -1184,6 +1249,7 @@ function renderPrinterDetailCard(printer, { actions = true } = {}) {
           <span>${t("misc.layer")}: <strong>${displayValue(status.currentLayer)} / ${displayValue(status.totalLayers)}</strong></span>
           <span>${t("misc.chamber")}: <strong>${displayTemperature(status.chamberTemp)}</strong></span>
           <span>${t("misc.hours")}: <strong>${formatOperatingHours(printer.operatingHours)}</strong></span>
+          <span>${t("misc.material")}: <strong>${printMaterialHtml(status)}</strong></span>
         </div>
         <div class="print-preview-frame">
           ${preview}
@@ -1194,6 +1260,7 @@ function renderPrinterDetailCard(printer, { actions = true } = {}) {
           ${hasErrors ? "<span class=\"error-pill\">HMS</span>" : ""}
         </div>
       </div>
+      <div class="print-project-name">${escapeHtml(printProjectName(status, printer))}</div>
       <div class="printer-progress-meta">
         <span>${t("misc.progress")} ${displayValue(status.progressPercent, " %")}</span>
         <span>${t("misc.remaining")} ${displayValue(status.remainingMinutes, " min")}</span>

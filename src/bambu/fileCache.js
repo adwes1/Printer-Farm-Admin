@@ -126,6 +126,16 @@ export class BambuFtpsClient {
       .filter(Boolean);
   }
 
+  async listDetailed(directory = "") {
+    const path = sanitizeFtpPath(directory);
+    const data = await this.readDataCommand(path ? `LIST ${path}` : "LIST");
+    return data
+      .toString("utf8")
+      .split(/\r?\n/)
+      .map(parseFtpListLine)
+      .filter(Boolean);
+  }
+
   async readDataCommand(command) {
     const passiveLine = await this.command("PASV", [227]);
     const passive = parsePassive(passiveLine);
@@ -136,13 +146,46 @@ export class BambuFtpsClient {
     const dataSocket = this.dataProtected
       ? await this.secureExistingDataSocket(passiveSocket)
       : passiveSocket;
+    dataSocket.setTimeout(FTP_TIMEOUT_MS);
     dataSocket.on("data", (chunk) => chunks.push(chunk));
     await new Promise((resolve, reject) => {
-      dataSocket.once("end", resolve);
-      dataSocket.once("close", resolve);
-      dataSocket.once("error", reject);
+      let settled = false;
+      function done(callback) {
+        if (settled) {
+          return;
+        }
+        settled = true;
+        dataSocket.off("end", onEnd);
+        dataSocket.off("close", onClose);
+        dataSocket.off("error", onError);
+        dataSocket.off("timeout", onTimeout);
+        callback();
+      }
+      function onEnd() {
+        done(resolve);
+      }
+      function onClose() {
+        done(resolve);
+      }
+      function onError(error) {
+        done(() => reject(error));
+      }
+      function onTimeout() {
+        dataSocket.destroy();
+        done(() => reject(new Error("FTPS Daten Timeout")));
+      }
+      dataSocket.once("end", onEnd);
+      dataSocket.once("close", onClose);
+      dataSocket.once("error", onError);
+      dataSocket.once("timeout", onTimeout);
     });
-    await readFtpResponse(this.socket, [226]);
+    try {
+      await readFtpResponse(this.socket, [226]);
+    } catch (error) {
+      if (chunks.length === 0) {
+        throw error;
+      }
+    }
     return Buffer.concat(chunks);
   }
 
@@ -176,6 +219,44 @@ export class BambuFtpsClient {
   }
 }
 
+function parseFtpListLine(line) {
+  const text = String(line || "").trim();
+  if (!text) {
+    return null;
+  }
+  const unixMatch = text.match(/^[dl-][rwx-]{9}\s+\d+\s+\S+\s+\S+\s+(\d+)\s+([A-Za-z]{3})\s+(\d{1,2})\s+(\d{2}:\d{2}|\d{4})\s+(.+)$/);
+  if (!unixMatch) {
+    return { name: text, modifiedAt: null };
+  }
+  return {
+    name: unixMatch[5],
+    size: Number.parseInt(unixMatch[1], 10),
+    modifiedAt: ftpTimestampToDate(unixMatch[2], unixMatch[3], unixMatch[4])
+  };
+}
+
+function ftpTimestampToDate(monthName, day, timeOrYear) {
+  const months = {
+    jan: 0, feb: 1, mar: 2, apr: 3, may: 4, jun: 5,
+    jul: 6, aug: 7, sep: 8, oct: 9, nov: 10, dec: 11
+  };
+  const month = months[String(monthName || "").toLowerCase()];
+  const numericDay = Number.parseInt(day, 10);
+  if (!Number.isFinite(month) || !Number.isFinite(numericDay)) {
+    return null;
+  }
+  const now = new Date();
+  if (/^\d{4}$/.test(String(timeOrYear))) {
+    return new Date(Number.parseInt(timeOrYear, 10), month, numericDay);
+  }
+  const [hour, minute] = String(timeOrYear || "00:00").split(":").map((value) => Number.parseInt(value, 10));
+  const date = new Date(now.getFullYear(), month, numericDay, hour || 0, minute || 0);
+  if (date.getTime() - now.getTime() > 30 * 24 * 60 * 60 * 1000) {
+    date.setFullYear(date.getFullYear() - 1);
+  }
+  return date;
+}
+
 function extractGcodeThumbnail(buffer) {
   const source = buffer.toString("utf8");
   const match = source.match(/thumbnail begin[^\n]*\n([\s\S]*?)thumbnail end/i);
@@ -199,7 +280,50 @@ function readUInt32(buffer, offset) {
   return offset + 4 <= buffer.length ? buffer.readUInt32LE(offset) : null;
 }
 
-function extract3mfThumbnail(buffer) {
+function plateNumberFromValue(value) {
+  const match = String(value || "").replaceAll("\\", "/").match(/(?:^|[/_-])plate[_-]?(\d+)(?:\.|_|-|$)/i);
+  return match ? Number.parseInt(match[1], 10) : null;
+}
+
+function plateNumberFromStatus(status = {}) {
+  return plateNumberFromValue(status.currentFile) ||
+    plateNumberFromValue(status.subtaskName) ||
+    plateNumberFromValue(status.gcodeFile);
+}
+
+function thumbnailPriority(name, plateNumber = null) {
+  const normalized = String(name || "").replaceAll("\\", "/");
+  if (plateNumber && normalized === `Metadata/plate_${plateNumber}.png`) {
+    return 100;
+  }
+  if (plateNumber && normalized === `Metadata/top_${plateNumber}.png`) {
+    return 95;
+  }
+  if (normalized === "Metadata/plate_1.png") {
+    return 80;
+  }
+  if (normalized === "Metadata/top_1.png") {
+    return 75;
+  }
+  if (/Metadata\/thumbnail\.png$/i.test(normalized)) {
+    return 70;
+  }
+  if (/Metadata\/model_thumbnail\.png$/i.test(normalized)) {
+    return 65;
+  }
+  if (/thumbnail/i.test(normalized)) {
+    return 60;
+  }
+  if (/Metadata\/plate_\d+\.png$/i.test(normalized)) {
+    return 50;
+  }
+  if (/\.png$/i.test(normalized)) {
+    return 10;
+  }
+  return 0;
+}
+
+function extract3mfThumbnail(buffer, { plateNumber = null } = {}) {
   const eocdSignature = 0x06054b50;
   let eocd = -1;
   for (let offset = buffer.length - 22; offset >= Math.max(0, buffer.length - 66000); offset -= 1) {
@@ -224,13 +348,13 @@ function extract3mfThumbnail(buffer) {
     const commentLength = readUInt16(buffer, offset + 32) || 0;
     const localOffset = readUInt32(buffer, offset + 42);
     const name = buffer.subarray(offset + 46, offset + 46 + fileNameLength).toString("utf8");
-    if (/\.png$/i.test(name) && /thumbnail|Metadata|preview|plate/i.test(name)) {
+    if (/\.png$/i.test(name) && /thumbnail|Metadata|preview|plate|top/i.test(name)) {
       candidates.push({ name, method, compressedSize, localOffset });
     }
     offset += 46 + fileNameLength + extraLength + commentLength;
   }
 
-  candidates.sort((a, b) => Number(/thumbnail/i.test(b.name)) - Number(/thumbnail/i.test(a.name)));
+  candidates.sort((a, b) => thumbnailPriority(b.name, plateNumber) - thumbnailPriority(a.name, plateNumber));
   for (const entry of candidates) {
     const local = entry.localOffset;
     if (readUInt32(buffer, local) !== 0x04034b50) continue;
@@ -321,11 +445,12 @@ function read3mfPlateInfo(buffer, plateBasename) {
   };
 }
 
-export function extractPreviewImage(buffer, filePath = "") {
+export function extractPreviewImage(buffer, filePath = "", status = {}) {
+  const plateNumber = plateNumberFromValue(filePath) || plateNumberFromStatus(status);
   if (/\.3mf$/i.test(filePath)) {
-    return extract3mfThumbnail(buffer);
+    return extract3mfThumbnail(buffer, { plateNumber });
   }
-  return extractGcodeThumbnail(buffer) || extract3mfThumbnail(buffer);
+  return extractGcodeThumbnail(buffer) || extract3mfThumbnail(buffer, { plateNumber });
 }
 
 function unique(values) {
@@ -340,12 +465,37 @@ function filePathCandidates(filePath) {
   const normalized = String(filePath || "").replaceAll("\\", "/");
   const withoutData = normalized.replace(/^\/?data\//i, "");
   const basename = normalized.split("/").filter(Boolean).at(-1);
+  const stem = basename
+    ?.replace(/\.gcode\.3mf$/i, "")
+    .replace(/\.3mf$/i, "")
+    .replace(/\.gcode$/i, "");
+  const projectStem = stem?.replace(/(?:\s*-\s*Plate\s*|_plate_)\d+$/i, "");
+  const nameStems = unique([stem, projectStem]);
+  const remoteNames = unique([
+    basename,
+    ...nameStems.flatMap((nameStem) => [
+      `${nameStem}.3mf`,
+      `${nameStem}.gcode.3mf`,
+      `${nameStem.replaceAll(" ", "_")}.3mf`,
+      `${nameStem.replaceAll(" ", "_")}.gcode.3mf`
+    ])
+  ]);
+  const remotePaths = remoteNames.flatMap((name) => [
+    name,
+    `/${name}`,
+    `cache/${name}`,
+    `/cache/${name}`,
+    `model/${name}`,
+    `/model/${name}`,
+    `data/${name}`,
+    `/data/${name}`
+  ]);
   return unique([
     normalized,
     normalized.replace(/^\/+/, ""),
     withoutData,
     withoutData.replace(/^\/+/, ""),
-    basename,
+    ...remotePaths,
     basename ? `Metadata/${basename}` : "",
     basename ? `/Metadata/${basename}` : "",
     basename ? `cache/${basename}` : "",
@@ -461,7 +611,7 @@ async function discoverMatching3mfPreview(client, filePath, status = {}) {
       if (plateInfo?.totalLayers !== expectedLayers) {
         continue;
       }
-      const preview = extractPreviewImage(file, candidate);
+      const preview = extractPreviewImage(file, candidate, { ...status, currentFile: filePath });
       if (!preview) {
         continue;
       }
@@ -474,8 +624,75 @@ async function discoverMatching3mfPreview(client, filePath, status = {}) {
   return null;
 }
 
-export async function readBambuPreview({ printer, filePath, status = {} }) {
-  if (!filePath || !printer?.enableFileCacheLookup) {
+function statusLooksActive(status = {}) {
+  return ["running", "printing", "pause"].includes(String(status.state || "").toLowerCase()) ||
+    (status.progressPercent > 0 && status.progressPercent < 100) ||
+    status.remainingMinutes > 0 ||
+    status.nozzleTemp > 100 ||
+    status.nozzleTargetTemp > 100 ||
+    status.bedTemp > 40 ||
+    status.bedTargetTemp > 40;
+}
+
+async function discoverLikely3mfPreview(client, status = {}) {
+  if (!statusLooksActive(status)) {
+    return null;
+  }
+  const directories = ["cache", "/cache", "model", "/model", "", "/"];
+  const candidates = [];
+
+  for (const directory of directories) {
+    try {
+      const entries = await client.listDetailed(directory);
+      for (const entry of entries) {
+        const candidate = entry.name?.includes("/") ? entry.name : joinRemotePath(directory, entry.name);
+        if (/\.3mf$/i.test(candidate)) {
+          candidates.push({ path: candidate, modifiedAt: entry.modifiedAt });
+        }
+      }
+      continue;
+    } catch {
+      // Fall back to NLST below for printers that do not support LIST consistently.
+    }
+
+    try {
+      const entries = await client.list(directory);
+      for (const entry of entries) {
+        const candidate = entry.includes("/") ? entry : joinRemotePath(directory, entry);
+        if (/\.3mf$/i.test(candidate)) {
+          candidates.push({ path: candidate, modifiedAt: null });
+        }
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  const uniqueCandidates = [...new Map(candidates.map((candidate) => [candidate.path, candidate])).values()]
+    .sort((left, right) => {
+      const leftTime = left.modifiedAt instanceof Date ? left.modifiedAt.getTime() : 0;
+      const rightTime = right.modifiedAt instanceof Date ? right.modifiedAt.getTime() : 0;
+      return rightTime - leftTime;
+    })
+    .slice(0, MATCH_SCAN_LIMIT);
+
+  for (const candidate of uniqueCandidates) {
+    try {
+      const file = await client.retrieve(candidate.path);
+      const preview = extractPreviewImage(file, candidate.path, status);
+      if (preview) {
+        return { image: preview, sourcePath: candidate.path };
+      }
+    } catch {
+      continue;
+    }
+  }
+
+  return null;
+}
+
+export async function readBambuPreviewResult({ printer, filePath, status = {} }) {
+  if (!printer?.enableFileCacheLookup) {
     return null;
   }
   const client = new BambuFtpsClient({
@@ -484,17 +701,21 @@ export async function readBambuPreview({ printer, filePath, status = {} }) {
   });
   try {
     await client.connect();
+    if (!filePath) {
+      return await discoverLikely3mfPreview(client, status);
+    }
     if (isGenericBambuMetadataFile(filePath)) {
-      return await discoverMatching3mfPreview(client, filePath, status);
+      const image = await discoverMatching3mfPreview(client, filePath, status);
+      return image ? { image, sourcePath: filePath } : null;
     }
     let lastError = null;
     const candidates = filePathCandidates(filePath);
     for (const candidate of candidates) {
       try {
         const file = await client.retrieve(candidate);
-        const preview = extractPreviewImage(file, candidate);
+        const preview = extractPreviewImage(file, candidate, status);
         if (preview) {
-          return preview;
+          return { image: preview, sourcePath: candidate };
         }
       } catch (error) {
         lastError = error;
@@ -506,9 +727,9 @@ export async function readBambuPreview({ printer, filePath, status = {} }) {
       }
       try {
         const file = await client.retrieve(candidate);
-        const preview = extractPreviewImage(file, candidate);
+        const preview = extractPreviewImage(file, candidate, status);
         if (preview) {
-          return preview;
+          return { image: preview, sourcePath: candidate };
         }
       } catch (error) {
         lastError = error;
@@ -521,4 +742,8 @@ export async function readBambuPreview({ printer, filePath, status = {} }) {
   } finally {
     client.close();
   }
+}
+
+export async function readBambuPreview(options) {
+  return (await readBambuPreviewResult(options))?.image || null;
 }
