@@ -30,6 +30,7 @@
       <nav class="module-tabs" aria-label="Module">
         <button class="nav-tab active" type="button" data-view="overview">Übersicht</button>
         <button class="nav-tab" type="button" data-view="materials">Materialverwaltung</button>
+        <button class="nav-tab" type="button" data-view="printers">3D-Drucker</button>
         <button class="nav-tab" type="button" data-view="maintenance">Wartung</button>
         <button class="nav-tab" type="button" data-view="settings">Einstellungen</button>
         <button class="nav-tab logout-tab" id="logout-button" type="button">Abmelden</button>
@@ -41,7 +42,21 @@
             <h2>Druckerstatus</h2>
             <span id="printer-status-summary"></span>
           </div>
-          <div class="printer-list" id="printer-list"></div>
+          <div class="table-wrap">
+            <table id="overview-printer-table">
+              <thead>
+                <tr>
+                  <th>Drucker</th>
+                  <th>Status</th>
+                  <th>Projekt</th>
+                  <th>Material</th>
+                  <th>Fortschritt</th>
+                  <th>Restzeit</th>
+                </tr>
+              </thead>
+              <tbody id="printer-list"></tbody>
+            </table>
+          </div>
         </section>
 
         <section class="details">
@@ -50,7 +65,7 @@
             <span id="material-types"></span>
           </div>
           <div class="table-wrap">
-            <table>
+            <table id="overview-material-table">
               <thead>
                 <tr>
                   <th>Material</th>
@@ -101,6 +116,19 @@
         </section>
       </section>
 
+      <section class="view" id="printers-view">
+        <section class="details">
+          <div class="details-heading">
+            <h2>3D-Drucker</h2>
+            <div class="heading-actions">
+              <span id="printer-summary"></span>
+              <button type="button" data-modal-open="printer-modal">Drucker anlegen</button>
+            </div>
+          </div>
+          <div class="printer-dashboard" id="printer-cards"></div>
+        </section>
+      </section>
+
       <section class="view" id="maintenance-view">
         <section class="details">
           <div class="details-heading">
@@ -118,7 +146,6 @@
 
         <div class="settings-subtabs admin-only" aria-label="Einstellungsbereiche">
           <button class="settings-subtab active" type="button" data-settings-tab="users">Benutzer</button>
-          <button class="settings-subtab" type="button" data-settings-tab="printers">3D-Drucker</button>
           <button class="settings-subtab" type="button" data-settings-tab="storage">Lagerplätze</button>
           <button class="settings-subtab" type="button" data-settings-tab="materials">Material-Ampel</button>
           <button class="settings-subtab" type="button" data-settings-tab="monitoring">Drucker-Monitoring</button>
@@ -147,17 +174,6 @@
               <tbody id="user-list"></tbody>
             </table>
           </div>
-        </section>
-
-        <section class="details admin-only settings-panel" data-settings-panel="printers">
-          <div class="details-heading">
-            <h2>3D-Drucker</h2>
-            <div class="heading-actions">
-              <span id="printer-summary"></span>
-              <button type="button" data-modal-open="printer-modal">Drucker anlegen</button>
-            </div>
-          </div>
-          <div class="printer-dashboard" id="printer-cards"></div>
         </section>
 
         <section class="details admin-only settings-panel" data-settings-panel="storage">

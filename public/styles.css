@@ -441,12 +441,6 @@ td span,
   box-shadow: 0 0 14px rgba(53, 255, 158, 0.75);
 }
 
-.printer-list {
-  display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px;
-}
-
 .overview-printer-card {
   display: grid;
   gap: 10px;
@@ -558,19 +552,93 @@ td span,
 }
 
 .overview-progress-line {
-  height: 26px;
-  padding: 7px;
-  border: 1px solid rgba(141, 153, 255, 0.28);
+  height: 14px;
+  padding: 0;
+  border: 0;
   overflow: hidden;
-  border-radius: 4px;
-  background: rgba(7, 10, 22, 0.72);
+  border-radius: 999px;
+  background:
+    linear-gradient(90deg, var(--cyan), var(--green)) left center / var(--progress-width, 0%) 100% no-repeat,
+    rgba(141, 153, 255, 0.2);
 }
 
-.overview-progress-line span {
-  display: block;
-  height: 100%;
-  border-radius: 2px;
-  background: linear-gradient(90deg, var(--cyan), var(--green));
+.overview-printer-row {
+  cursor: pointer;
+}
+
+#overview-printer-table {
+  table-layout: fixed;
+}
+
+#overview-printer-table th:nth-child(1),
+#overview-printer-table td:nth-child(1) {
+  width: 16%;
+}
+
+#overview-printer-table th:nth-child(2),
+#overview-printer-table td:nth-child(2) {
+  width: 14%;
+}
+
+#overview-printer-table th:nth-child(4),
+#overview-printer-table td:nth-child(4) {
+  width: 13%;
+}
+
+#overview-printer-table th:nth-child(5),
+#overview-printer-table td:nth-child(5) {
+  width: 22%;
+}
+
+#overview-printer-table th:nth-child(6),
+#overview-printer-table td:nth-child(6) {
+  width: 11%;
+}
+
+.overview-printer-row:hover {
+  background: rgba(0, 229, 255, 0.05);
+}
+
+.overview-printer-row:focus-visible {
+  outline: 2px solid rgba(0, 229, 255, 0.68);
+  outline-offset: -2px;
+}
+
+.overview-printer-state,
+.overview-progress-cell {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.overview-printer-state {
+  font-weight: 800;
+}
+
+.overview-project-cell {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.overview-progress-cell {
+  align-items: center;
+  min-height: 32px;
+}
+
+.overview-progress-cell > span {
+  flex: 0 0 44px;
+  color: var(--text);
+  font-weight: 800;
+  text-align: right;
+  white-space: nowrap;
+}
+
+.overview-progress-cell .overview-progress-line {
+  flex: 1 1 auto;
+  min-width: 90px;
+  height: 14px;
 }
 
 .printer-row {

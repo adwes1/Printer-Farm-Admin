@@ -76,6 +76,7 @@ const I18N = {
     "login.submit": "Anmelden",
     "nav.overview": "Übersicht",
     "nav.materials": "Materialverwaltung",
+    "nav.printers": "3D-Drucker",
     "nav.maintenance": "Wartung",
     "nav.settings": "Einstellungen",
     "nav.logout": "Abmelden",
@@ -93,6 +94,8 @@ const I18N = {
     "settings.languageGerman": "Deutsch",
     "settings.languageEnglish": "English",
     "table.material": "Material",
+    "table.printer": "Drucker",
+    "table.project": "Projekt",
     "table.manufacturer": "Hersteller",
     "table.color": "Farbe",
     "table.traffic": "Ampel",
@@ -260,6 +263,7 @@ const I18N = {
     "login.submit": "Log in",
     "nav.overview": "Overview",
     "nav.materials": "Materials",
+    "nav.printers": "3D Printers",
     "nav.maintenance": "Maintenance",
     "nav.settings": "Settings",
     "nav.logout": "Log out",
@@ -277,6 +281,8 @@ const I18N = {
     "settings.languageGerman": "Deutsch",
     "settings.languageEnglish": "English",
     "table.material": "Material",
+    "table.printer": "Printer",
+    "table.project": "Project",
     "table.manufacturer": "Manufacturer",
     "table.color": "Color",
     "table.traffic": "Traffic",
@@ -470,6 +476,7 @@ const STATIC_TEXTS = [
   ["#login-form button[type='submit']", "login.submit"],
   ["[data-view='overview']", "nav.overview"],
   ["[data-view='materials']", "nav.materials"],
+  ["[data-view='printers']", "nav.printers"],
   ["[data-view='maintenance']", "nav.maintenance"],
   ["[data-view='settings']", "nav.settings"],
   ["#logout-button", "nav.logout"],
@@ -477,7 +484,6 @@ const STATIC_TEXTS = [
   ["#overview-view .details:nth-of-type(2) h2", "overview.materialStock"],
   ["#permission-banner", "settings.permission"],
   ["[data-settings-tab='users']", "settings.users"],
-  ["[data-settings-tab='printers']", "settings.printers"],
   ["[data-settings-tab='storage']", "settings.storage"],
   ["[data-settings-tab='materials']", "settings.materialTraffic"],
   ["[data-settings-tab='monitoring']", "settings.monitoring"],
@@ -485,8 +491,8 @@ const STATIC_TEXTS = [
   ["[data-settings-tab='language']", "settings.language"],
   ["[data-settings-panel='users'] h2", "settings.users"],
   ["[data-settings-panel='users'] [data-modal-open='user-modal']", "action.addUser"],
-  ["[data-settings-panel='printers'] h2", "settings.printers"],
-  ["[data-settings-panel='printers'] [data-modal-open='printer-modal']", "action.addPrinter"],
+  ["#printers-view h2", "settings.printers"],
+  ["#printers-view [data-modal-open='printer-modal']", "action.addPrinter"],
   ["[data-settings-panel='storage'] h2", "settings.storage"],
   ["[data-settings-panel='storage'] [data-modal-open='storage-modal']", "action.addStorage"],
   ["[data-settings-panel='materials'] h2", "settings.materialTraffic"],
@@ -538,7 +544,8 @@ function translateTableHeaders() {
   });
 
   const headerGroups = [
-    ["#overview-view thead th", ["table.material", "table.manufacturer", "table.color", "table.traffic", "table.quantity", "table.storage"]],
+    ["#overview-printer-table thead th", ["table.printer", "table.status", "table.project", "table.material", "misc.progress", "misc.remaining"]],
+    ["#overview-material-table thead th", ["table.material", "table.manufacturer", "table.color", "table.traffic", "table.quantity", "table.storage"]],
     ["[data-settings-panel='users'] thead th", ["table.name", "table.email", "table.rights", "table.action"]],
     ["[data-settings-panel='storage'] thead th", ["table.room", "table.shelf", "table.box", "table.note", "table.material", "table.action"]],
     ["[data-settings-panel='maintenance'] thead th", ["settings.maintenance", "table.interval", "table.note", "table.status", "table.action"]]
@@ -1109,7 +1116,7 @@ function setView(view) {
 }
 
 function setSettingsTab(tab) {
-  const targetTab = ["users", "printers", "storage", "materials", "monitoring", "maintenance", "language"].includes(tab) ? tab : "users";
+  const targetTab = ["users", "storage", "materials", "monitoring", "maintenance", "language"].includes(tab) ? tab : "users";
   state.settingsTab = targetTab;
 
   document.querySelectorAll("[data-settings-tab]").forEach((button) => {
@@ -1189,34 +1196,34 @@ function renderOverview() {
       const status = printer.status || {};
       const stateName = printerDisplayState(printer);
       const progressWidth = Math.max(0, Math.min(100, Number(status.progressPercent || 0)));
-      const preview = printer.previewImageUrl
-        ? `<img class="overview-printer-preview-image" src="${escapeHtml(printer.previewImageUrl)}" alt="${escapeHtml(printProjectName(status, printer))}">`
-        : `<div class="overview-printer-preview-placeholder">${t("empty.noPreview")}</div>`;
       return `
-        <article class="overview-printer-card" data-overview-printer="${printer.id}" tabindex="0" role="button" aria-label="${escapeHtml(`${printer.name} ${t("misc.details")}`)}">
-          <div class="overview-printer-header">
+        <tr class="overview-printer-row" data-overview-printer="${printer.id}" tabindex="0" role="button" aria-label="${escapeHtml(`${printer.name} ${t("misc.details")}`)}">
+          <td>
             <strong>${escapeHtml(printer.name)}</strong>
-            <span>
-              ${escapeHtml(statusLabel(stateName))}
+          </td>
+          <td>
+            <span class="overview-printer-state">
               <span class="status-dot ${printerTrafficTone(printer)}" title="${escapeHtml(statusLabel(stateName))}"></span>
+              ${escapeHtml(statusLabel(stateName))}
             </span>
-          </div>
-          <div class="overview-printer-preview">
-            ${preview}
-          </div>
-          <div class="overview-printer-project-name">${escapeHtml(printProjectName(status, printer))}</div>
-          <div class="overview-printer-material">${t("misc.material")} ${printMaterialHtml(status)}</div>
-          <div class="overview-printer-progress-meta">
-            <span>${t("misc.progress")} ${displayValue(status.progressPercent, " %")}</span>
-            <span>${t("misc.remaining")} ${displayValue(status.remainingMinutes, " min")}</span>
-          </div>
-          <div class="overview-progress-line">
-            <span style="width: ${progressWidth}%"></span>
-          </div>
-        </article>
+          </td>
+          <td class="overview-project-cell" title="${escapeHtml(printProjectName(status, printer))}">${escapeHtml(printProjectName(status, printer))}</td>
+          <td>${printMaterialHtml(status)}</td>
+          <td>
+            <div class="overview-progress-cell">
+              <span>${displayValue(status.progressPercent, " %")}</span>
+              <div class="overview-progress-line" style="--progress-width: ${progressWidth}%"></div>
+            </div>
+          </td>
+          <td>${displayValue(status.remainingMinutes, " min")}</td>
+        </tr>
       `;
     })
-    .join("");
+    .join("") || `
+      <tr>
+        <td colspan="6">${t("empty.noActivePrinters")}</td>
+      </tr>
+    `;
 }
 
 function renderPrinterDetailCard(printer, { actions = true } = {}) {
