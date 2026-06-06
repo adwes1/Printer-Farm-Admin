@@ -31,6 +31,7 @@ const elements = {
   appShell: document.querySelector("#app-shell"),
   loginForm: document.querySelector("#login-form"),
   logoutButton: document.querySelector("#logout-button"),
+  fullscreenButton: document.querySelector("#fullscreen-button"),
   appVersion: document.querySelector("#app-version"),
   toast: document.querySelector("#toast"),
   permissionBanner: document.querySelector("#permission-banner"),
@@ -80,8 +81,10 @@ const I18N = {
     "nav.maintenance": "Wartung",
     "nav.settings": "Einstellungen",
     "nav.logout": "Abmelden",
+    "nav.fullscreenEnter": "Vollbild",
+    "nav.fullscreenExit": "Vollbild beenden",
     "overview.printerStatus": "Druckerstatus",
-    "overview.materialStock": "Material im Lager",
+    "overview.materialStock": "Artikel unter Mindestbestand",
     "settings.permission": "User können alle Module sehen und bearbeiten, außer die Einstellungen.",
     "settings.users": "Benutzer",
     "settings.printers": "3D-Drucker",
@@ -267,8 +270,10 @@ const I18N = {
     "nav.maintenance": "Maintenance",
     "nav.settings": "Settings",
     "nav.logout": "Log out",
+    "nav.fullscreenEnter": "Fullscreen",
+    "nav.fullscreenExit": "Exit fullscreen",
     "overview.printerStatus": "Printer Status",
-    "overview.materialStock": "Material Inventory",
+    "overview.materialStock": "Items Below Minimum Stock",
     "settings.permission": "Users can view and edit all modules except settings.",
     "settings.users": "Users",
     "settings.printers": "3D Printers",
@@ -473,13 +478,11 @@ const STATIC_TEXTS = [
   ["#login-form h1", "login.title"],
   ["#login-form label:nth-of-type(1)", "login.username"],
   ["#login-form label:nth-of-type(2)", "login.password"],
-  ["#login-form button[type='submit']", "login.submit"],
   ["[data-view='overview']", "nav.overview"],
   ["[data-view='materials']", "nav.materials"],
   ["[data-view='printers']", "nav.printers"],
   ["[data-view='maintenance']", "nav.maintenance"],
   ["[data-view='settings']", "nav.settings"],
-  ["#logout-button", "nav.logout"],
   ["#overview-view .details:nth-of-type(1) h2", "overview.printerStatus"],
   ["#overview-view .details:nth-of-type(2) h2", "overview.materialStock"],
   ["#permission-banner", "settings.permission"],
@@ -512,6 +515,10 @@ const STATIC_TEXTS = [
 const STATIC_ATTRS = [
   ["#material-search", "placeholder", "placeholder.materialSearch"],
   ["#material-search", "aria-label", "placeholder.materialSearch"],
+  ["#login-form button[type='submit']", "aria-label", "login.submit"],
+  ["#login-form button[type='submit']", "title", "login.submit"],
+  ["#logout-button", "aria-label", "nav.logout"],
+  ["#logout-button", "title", "nav.logout"],
   ["#login-form input[name='password']", "placeholder", "placeholder.password"],
   ["#maintenance-task-form input[name='description'], #maintenance-form textarea[name='note']", "placeholder", "placeholder.optional"],
   ["#printer-edit-form input[name='accessCode'], #user-edit-form input[name='password']", "placeholder", "placeholder.keepEmpty"],
@@ -675,6 +682,7 @@ function applyTranslations() {
   translateTableHeaders();
   translateFormLabels();
   translateModals();
+  updateFullscreenButton();
 }
 
 function openModal(id) {
@@ -1093,6 +1101,69 @@ function showApp(user) {
   state.role = user?.role || "user";
   elements.loginScreen.hidden = true;
   elements.appShell.hidden = false;
+}
+
+function fullscreenElement() {
+  return document.fullscreenElement ||
+    document.webkitFullscreenElement ||
+    document.mozFullScreenElement ||
+    document.msFullscreenElement ||
+    null;
+}
+
+function fullscreenEnabled() {
+  return Boolean(
+    document.fullscreenEnabled ||
+    document.webkitFullscreenEnabled ||
+    document.mozFullScreenEnabled ||
+    document.msFullscreenEnabled
+  );
+}
+
+async function requestAppFullscreen() {
+  const target = elements.appShell || document.documentElement;
+  const request = target.requestFullscreen ||
+    target.webkitRequestFullscreen ||
+    target.mozRequestFullScreen ||
+    target.msRequestFullscreen;
+  if (!request) {
+    throw new Error("Vollbildmodus wird von diesem Browser nicht unterstützt.");
+  }
+  await request.call(target);
+}
+
+async function exitAppFullscreen() {
+  const exit = document.exitFullscreen ||
+    document.webkitExitFullscreen ||
+    document.mozCancelFullScreen ||
+    document.msExitFullscreen;
+  if (!exit) {
+    return;
+  }
+  await exit.call(document);
+}
+
+function updateFullscreenButton() {
+  if (!elements.fullscreenButton) {
+    return;
+  }
+  const isFullscreen = Boolean(fullscreenElement());
+  const label = t(isFullscreen ? "nav.fullscreenExit" : "nav.fullscreenEnter");
+  elements.fullscreenButton.innerHTML = isFullscreen
+    ? `<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M9 4v5H4M15 4v5h5M9 20v-5H4M15 20v-5h5"></path></svg>`
+    : `<svg aria-hidden="true" viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"></path></svg>`;
+  elements.fullscreenButton.setAttribute("aria-label", label);
+  elements.fullscreenButton.setAttribute("title", label);
+  elements.fullscreenButton.setAttribute("aria-pressed", String(isFullscreen));
+  elements.fullscreenButton.disabled = !fullscreenEnabled();
+}
+
+async function toggleFullscreen() {
+  if (fullscreenElement()) {
+    await exitAppFullscreen();
+    return;
+  }
+  await requestAppFullscreen();
 }
 
 function setView(view) {
@@ -2241,6 +2312,19 @@ elements.logoutButton.addEventListener("click", async () => {
     showToast(error.message, "error");
   }
 });
+
+elements.fullscreenButton?.addEventListener("click", async () => {
+  try {
+    await toggleFullscreen();
+  } catch (error) {
+    showToast(error.message, "error");
+  }
+});
+
+document.addEventListener("fullscreenchange", updateFullscreenButton);
+document.addEventListener("webkitfullscreenchange", updateFullscreenButton);
+document.addEventListener("mozfullscreenchange", updateFullscreenButton);
+document.addEventListener("MSFullscreenChange", updateFullscreenButton);
 
 document.querySelectorAll("dialog").forEach((dialog) => {
   dialog.addEventListener("click", (event) => {

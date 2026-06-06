@@ -198,8 +198,24 @@ label {
   font-size: 1.7rem;
 }
 
-.login-card button {
-  width: 100%;
+.login-submit-button {
+  display: grid;
+  place-items: center;
+  justify-self: end;
+  width: 64px;
+  min-width: 64px;
+  min-height: 52px;
+  padding-inline: 0;
+}
+
+.login-submit-button svg {
+  width: 26px;
+  height: 26px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.4;
 }
 
 .login-version {
@@ -234,6 +250,31 @@ label {
 
 .logout-tab {
   margin-left: auto;
+}
+
+.logout-tab,
+.fullscreen-tab {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  min-width: 52px;
+  padding-inline: 0;
+}
+
+.logout-tab svg,
+.fullscreen-tab svg {
+  width: 22px;
+  height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.4;
+}
+
+.fullscreen-tab[aria-pressed="true"] {
+  border-color: var(--green);
+  color: var(--text);
 }
 
 .view {
@@ -1414,7 +1455,8 @@ td span,
     justify-self: center;
   }
 
-  .logout-tab {
+  .logout-tab,
+  .fullscreen-tab {
     margin-left: 0;
   }
 

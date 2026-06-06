@@ -21,7 +21,13 @@
           Passwort
           <input name="password" type="password" autocomplete="current-password" required placeholder="Passwort">
         </label>
-        <button type="submit">Anmelden</button>
+        <button class="login-submit-button" type="submit" aria-label="Anmelden" title="Anmelden">
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"></path>
+            <path d="M10 17l5-5-5-5"></path>
+            <path d="M15 12H3"></path>
+          </svg>
+        </button>
         <span class="login-version">v0.0.25a</span>
       </form>
     </section>
@@ -33,7 +39,18 @@
         <button class="nav-tab" type="button" data-view="printers">3D-Drucker</button>
         <button class="nav-tab" type="button" data-view="maintenance">Wartung</button>
         <button class="nav-tab" type="button" data-view="settings">Einstellungen</button>
-        <button class="nav-tab logout-tab" id="logout-button" type="button">Abmelden</button>
+        <button class="nav-tab logout-tab" id="logout-button" type="button" aria-label="Abmelden" title="Abmelden">
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
+            <path d="M16 17l5-5-5-5"></path>
+            <path d="M21 12H9"></path>
+          </svg>
+        </button>
+        <button class="nav-tab fullscreen-tab" id="fullscreen-button" type="button" aria-label="Vollbild" title="Vollbild" aria-pressed="false">
+          <svg aria-hidden="true" viewBox="0 0 24 24">
+            <path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"></path>
+          </svg>
+        </button>
       </nav>
 
       <section class="view active" id="overview-view">
@@ -61,7 +78,7 @@
 
         <section class="details">
           <div class="details-heading">
-            <h2>Material im Lager</h2>
+            <h2>Artikel unter Mindestbestand</h2>
             <span id="material-types"></span>
           </div>
           <div class="table-wrap">
